@@ -1,0 +1,14 @@
+
+
+
+
+## rodar de novo o modelo com coral no psi
+## lembrar de monitorar intercept psi
+
+
+https://stats.stackexchange.com/questions/41536/how-can-i-model-a-proportion-with-bugs-jags-stan
+
+beta1 aleatorio
+
+ver o que aconteceu com o observador 8
+

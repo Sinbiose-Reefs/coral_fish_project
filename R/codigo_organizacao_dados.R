@@ -1,0 +1,531 @@
+## analises para o manuscrito "Fish reliance on live coral cover in the Brazilian Province" 
+
+## chamar os pacotes
+source("R/packages.R")
+source("R/functions.R")
+
+## CODIGO PARA ORGANIZAÇÃO DOS DADOS DE PEIXES E BENTOS
+## A IDEIA EH FAZER DATA FRAMES EM FORMATO LONGO PARA OS MODELOS DE OCUPACAO DE SITIOS
+
+## dados dos bentos
+bentos <- read.xlsx(here("data","detection","Updated_compiled_quadrats_allsites.xlsx"),
+                    sheet = 1, colNames = TRUE)
+
+## dados dos peixes
+peixes <- read.csv(here("data", "detection","UpdatedData_RMorais_et_al_2017.csv"))
+
+### listagem dos locais com cobertura de coral, segundo Aued et al. 2018 PLoOne
+locais_corais <- c("rgnor_parrachos",
+                   "rgnor_norte",
+                   "rgnor_sul",
+                   "costa_corais",
+                   "btds_santos",
+                   "abrolhos",
+                   "ceara",
+                   "espirito_santo",
+                   "arraial",
+                   "ilhabela",
+                   "alcatrazes")
+
+## subset dos sitios baseado na quantidade de coral
+peixes <- peixes [which(peixes$Locality %in% locais_corais),]
+bentos <- bentos [which(bentos$Locality %in% locais_corais),]
+
+## filtrar os dados de peixes de acordo com o minimo de ano de bentos
+peixes <- peixes [which(peixes$eventYear >= min (bentos$eventYear) & peixes$eventYear <= max (bentos$eventYear)),]
+
+## modificar o eventID removendo o ano, desde que escolhemos um lapso temporal que cobre 2010 a 2014, 
+## de modo que possamos analisar os dados se peixes foi coletado em 2012 e bentos em 2014, por exemplo 
+
+bentos$eventID_MOD <- substr(bentos$eventID, 1,nchar(as.character(bentos$eventID))-5) 
+peixes$eventID_MOD  <- substr(peixes$eventID, 1,nchar(as.character(peixes$eventID))-5) 
+
+## fazer um histograma pra saber o numero de eventIDS por ano
+
+barplot_function(df1=bentos,#bentos
+                 df2= peixes #peixes
+                 )
+
+## subset entre os datasets, desde que peixes ou bentos foram amostrados nos mesmos locais
+peixes_subset <- peixes [which(peixes$eventID_MOD %in% bentos$eventID_MOD),]
+
+## da mesma forma, pegar o subset de ID de bentos que estao nos dados de peixes
+bentos_subset <- bentos [which(bentos$eventID_MOD %in% peixes$eventID_MOD),]
+
+##  criar uma ID numerica para o observador
+peixes_subset$ID.observer <- as.numeric(as.factor(peixes_subset$Observer))
+
+### mapa para conferir a posicao dos sitios - com base no subset dos dados que correspondem
+## tem um monte de pontos porque tem todos os eventIDs ai
+
+initial_map_function (df1 = bentos_subset,# red
+                      df2 = peixes_subset) # black
+
+######################################################################
+######################################################################
+## comecar a formatar o subset de dados de peixes para os modelos   ##
+######################################################################
+######################################################################
+
+### quais as localidades com dados nos subsets ???
+
+## editar IDs e obter dados dos transectos
+comb_locality_site_transect <- paste(peixes_subset$Locality, 
+                                     peixes_subset$Site,
+                                     peixes_subset$eventDepth, 
+                                     peixes_subset$Transect_id,sep=".")
+
+## obter os sitios unicos
+comb_locality_site <- paste(peixes_subset$Locality, 
+                            peixes_subset$Site,
+                            peixes_subset$eventDepth,sep=".")
+unique_comb_locality_site <- unique (comb_locality_site)
+
+## o proximo passo eh criar um vetor dizendo quanto eventos amostrais (Transeccoes) cada sitio teve,
+## e cole na tabela original
+peixes_subset <- cbind(peixes_subset, transection_number = 
+                         unlist (
+                           lapply (unique_comb_locality_site, function (i)## para cada combinacao
+                             as.numeric( ## cada nivel do fator como uma  contagem de repeticoes
+                               factor (comb_locality_site_transect [which(comb_locality_site %in%  i )] ## transformar em fator
+                                       ### o caracter vai se transformar em numero inteiro automaticamente
+                               )
+                             )
+                           )
+                         )
+)
+
+## dados basicos
+## number of unique transects; number of unique localities; number of unique sites
+length(unique (peixes_subset$Transect_id)); length(unique (peixes_subset$Locality)); length(unique (peixes_subset$Site))
+
+## agora, ver quais especies de peixes restaram no subconjunto dos dados
+especie <- unique (peixes_subset$ScientificName)
+## criara um novo descritor de sitio, desta vez editado para ficar com formato similar aos dados de bentos
+peixes_subset$locality_site <- paste(peixes_subset$Locality, 
+                                     peixes_subset$Site,
+                                     peixes_subset$eventDepth,sep=".")
+
+## como o cast remove as transeccoes sem deteccao, temos que imputa-las
+## primeiro tirar fora as spp que ocorreram em menos de 10 sitios
+
+sp_dados_suficientes <- unlist(
+  lapply (especie, function (i)
+    length (unique (peixes_subset [which (peixes_subset$ScientificName %in% i),"locality_site"])) >=10
+  )
+)
+
+## especie com dados suficientes
+## ESTE EH O POOL DE SP DA ANALISE
+especie <- especie [which (sp_dados_suficientes == T)]
+# colocar em ordem alfabetica
+especie  <- especie [order(especie)]
+
+## agora remover dos dados as especies que ocorrem em menos de 10 sitios
+peixes_subset <- peixes_subset [which(peixes_subset$ScientificName %in% especie),]
+
+## fazer uma tabela para cada sitio,  composta pela especie (linha) e transeccao (coluna)
+tab_especies <- lapply (unique (peixes_subset$locality_site), function (i) ## para cada sitio
+  
+  cast(peixes_subset [peixes_subset$locality_site == i,], ## construa uma tabela dinamica de dados
+       formula = ScientificName  ~ transection_number,
+       value= "IndCounting",
+       fun.aggregate = sum)
+  
+)
+
+## adicionar as especies que nao foram detectadas em um dado sitio
+## ja que o cast as remove da tabela
+
+sp_da_coluna1 <- lapply (tab_especies, function (i) 
+  
+  data.frame (ScientificName= as.character(especie[especie %in% i$ScientificName == F]))
+  
+)
+
+## fazer uma tabela vazia para imputacao  
+## especies faltantes na linha
+## transeccoes faltantes na coluna
+sp_para_imputar <- lapply (seq(1,length(sp_da_coluna1)), function (i)
+  cbind (sp_da_coluna1 [[i]], ## colar nos nomes as deteccoes 
+         matrix(0, 
+                nrow = length (especie[especie %in% tab_especies[[i]]$ScientificName == F]), ## sp que nao estao na tabela
+                ncol= ncol (tab_especies[[i]])-1,## -1 pra tirar o nome das sp
+                dimnames = list (NULL,
+                                 colnames(tab_especies[[i]])[-1])
+                
+                
+         )
+  )
+)
+
+# imputar as sp atraves do rbind 
+tab_especies_imput <- lapply (seq(1,length(sp_para_imputar)), function (i)
+  
+  rbind (tab_especies[[i]], sp_para_imputar[[i]])
+
+  )
+
+## ordenar as linhas das tabelas por ordem alfabetica
+tab_especies_imput <- lapply (tab_especies_imput, function (i)
+  
+  i[order (i$ScientificName),]
+  
+)
+
+# nomear a lista com o nome dos sitios
+names(tab_especies_imput) <- unique (peixes_subset$locality_site)
+
+# trabalhar a dimensao das ocasioes
+
+## primeiro, colocar transeccoes que estao faltando no meio das existentes
+# todas as transeccoes existentes
+seq_ocasioes <- lapply (tab_especies_imput, function (i) 
+  
+  seq (1,max (as.numeric(colnames (i)[-1])))
+)
+
+## imputar em relacao as existentes e todas as possiveis (em relacao ao sitio com o n maximo de transeccoes -58) 
+ocasioes_a_imputar <- lapply (seq(1,length(seq_ocasioes)), function (i)
+  seq_ocasioes[[i]] [which(seq_ocasioes[[i]] %in% as.numeric(colnames (tab_especies_imput [[i]])[-1]) == F)]
+)
+
+## quais faltam
+quais_faltam <-(which(lapply (ocasioes_a_imputar,length) >= 1))
+
+## imputar somente nas tabelas que tem ocasioes faltando
+ocasioes_a_imputar <- lapply (quais_faltam, function (i) # das que tem dados faltando
+  ## construir uma matriz de zeros com o nrow igual o numero de especies
+  # ncol igual ao numero de transeccoes faltantes
+  matrix (0,
+          nrow= length(especie),
+          ncol=  length(seq_ocasioes[[i]] [which(seq_ocasioes[[i]] %in% as.numeric(colnames (tab_especies_imput [[i]])[-1]) == F)]),
+          dimnames =list(NULL,
+                         seq_ocasioes[[i]] [which(seq_ocasioes[[i]] %in% as.numeric(colnames (tab_especies_imput [[i]])[-1]) == F)])
+  ))
+
+# subset das tabelas para imputar
+subset_imput <- tab_especies_imput [quais_faltam]
+# colar as ocasioes faltantes
+subset_imputadas <- lapply (seq(1,length(quais_faltam)), function (i)
+  
+  cbind(subset_imput [[i]],ocasioes_a_imputar[[i]]))
+
+## ordenar as colunas por sequencia de ocasioes
+subset_imputadas <- lapply (subset_imputadas, function (i) 
+  i [,order(as.numeric (colnames (i)))]
+) ## vai produzir NA porque uma coluna nao eh numerica
+
+## nomear
+names(subset_imputadas) <- unique (peixes_subset$locality_site) [quais_faltam]
+
+## colar as duas listas
+tabelas_ocasioes_imputadas <- c (tab_especies_imput [-quais_faltam], subset_imputadas)
+tabelas_ocasioes_imputadas <- tabelas_ocasioes_imputadas[match(names(tab_especies_imput),names (tabelas_ocasioes_imputadas))]# == names(tab_especies_imput
+
+## cf os nomes dos sitios nos dois grupos de dados (imputados e completos)
+# names(tabelas_ocasioes_imputadas) == names(tab_especies_imput)
+
+# remover a coluna do nome cientifico da sp.
+tabelas_ocasioes_imputadas <- lapply (tabelas_ocasioes_imputadas, function (i)
+  i [,-which(colnames(i) == "ScientificName")]
+)
+
+## agora, finalmente, colar as transeccoes inexistentes em um sitio
+# encontrar o maximo de transeccoes existentes
+maximo_ocasioes <- max(unlist(lapply (tabelas_ocasioes_imputadas, ncol)))
+
+# colar
+imputar_maximo_ocasioes <- lapply (tabelas_ocasioes_imputadas, function (i)
+  matrix(NA, 
+         nrow=length(especie),
+         ncol = length (seq (max(as.numeric (colnames (i)))+1,
+                             maximo_ocasioes)),
+         dimnames = list(NULL,
+                         seq (max(as.numeric (colnames (i)))+1,
+                              maximo_ocasioes)))
+)
+
+
+# # # # # # IMPORTANTE!
+### imputar as ocasioes
+## esta eh a tabela completa, com as sp nas linhas, transeccoes colunas, e sitios na lista (3a dimensao)
+
+tab_completa_site_ocasiao <- lapply (seq(1,length(tabelas_ocasioes_imputadas)), function (i)
+
+    cbind (tabelas_ocasioes_imputadas [[i]], imputar_maximo_ocasioes [[i]])
+
+    )
+
+## um dos sitios já tinha 58 colunas, então ele add duas colunas desnecessarias
+## neste caso, substituir pela tabela antiga
+tab_completa_site_ocasiao [which(lapply (tab_completa_site_ocasiao,ncol) > 58)] <- tabelas_ocasioes_imputadas [which(lapply (tab_completa_site_ocasiao,ncol) > 58)]
+
+## agora tenho que colocar a especie na terceira dimensao (antes era o sitio),
+### e depois transformar em array
+lista_sp_sitio <- lapply (seq (1,length(especie)), function (k) ## especie
+  lapply (tab_completa_site_ocasiao, function (i)## para cada sitio
+    
+    i [k,]                   ## desmanche tudo pra colocar na ordem correta
+  )
+)
+
+names(lista_sp_sitio) <- especie
+
+# transformar em tabela novamente, de sitio na linha e ocasiao na coluna, e sp na 3a dimensao
+tab_completa_site_ocasiao <- lapply (lista_sp_sitio, function (i)
+  
+  matrix (unlist(i),
+          nrow = length(names(tab_especies_imput)),
+          ncol = maximo_ocasioes,
+          dimnames = list(names(tab_especies_imput)),
+          byrow=T)
+)
+
+### transformar a lista em array
+
+arranjo_deteccoes_sitio_transeccao <-   array(unlist(tab_completa_site_ocasiao), 
+                                              dim = c(nrow(tab_completa_site_ocasiao[[1]]), 
+                                                      ncol(tab_completa_site_ocasiao[[1]]), 
+                                                      length(tab_completa_site_ocasiao)))
+## transformar em 0 e 1 ( deteccao e nao deteccao )
+arranjo_deteccoes_sitio_transeccao [arranjo_deteccoes_sitio_transeccao > 1] <- 1
+
+
+#######################################################################################
+#######################################################################################
+### comecar a formatar os dados dos corais para os modelos de ocupacao de sitios
+#######################################################################################
+#######################################################################################
+
+## obter dados de cobertura dos corais
+
+sitios_bentos <- unique (bentos_subset$eventID_MOD)
+
+## uma tabela dinamica por sitio, com a especie na linha, e o video na coluna
+cob_bentos <- lapply (sitios_bentos, function (i)
+  
+        cast(bentos_subset [which (bentos_subset$eventID_MOD == i),],
+                   formula = Taxon  ~ Video_number,
+                   value= "Cover",
+                   fun.aggregate = max)
+  )
+
+## agora pegar somente os dados dos corais que estou interessado
+## lista de sp de corais nos dados de Aued
+sp_corais <- c("Agaricia.fragilis", "Agaricia.humilis", "Agaricia.sp","Favia.gravida",
+               "Madracis.decactis", "Meandrina.brasiliensis","Millepora.alcicornis",
+               "Millepora.incrusting", "Millepora.nitida","Millepora.sp",
+               "Montastraea.cavernosa", "Mussismilia.harttii", "Mussismilia.braziliensis",
+               "Mussismilia.hispida", "Mussismilia.leptophylla", "Porites.astreoides",
+               "Porites.branneri", "Porites.sp", "Siderastrea.spp")
+
+## lista dos generos de corais nos dados de Aued
+genero <- c ("Agaricia", "Favia","Madracis","Meandrina","Millepora","Montastraea","Mussismilia","Porites",
+             "Siderastrea")
+
+# agora pegar o subconjunto das spp. de corais 
+cob_bentos <- lapply (cob_bentos, function (i)
+  
+  i [which (i$Taxon %in% sp_corais),]
+  
+  )
+
+## ajustar os nomes das colunas, removendo a palavra "Video" (menos do primeiro nome- que eh a especie)
+## e colocar as colunas da tabela em ordem de videos
+
+
+cob_bentos <- lapply (cob_bentos, function (i) {
+  # salvar sp
+  corais <- i$Taxon
+  ## remover sp da tabela
+  cob_preliminar <- i[,-1]
+  # substituir video por nada
+  colnames (cob_preliminar) <- gsub ("Video","",colnames (cob_preliminar))
+  ## colunas ordenadas
+  cob_preliminar<-cob_preliminar [,order (as.numeric (colnames (cob_preliminar)))]
+  ## agora colocar o nome das colunas como uma sequencia de 1: nvideos
+  colnames (cob_preliminar) <- seq (1,length(colnames(cob_preliminar)))
+  ## colocar o taxon de volta
+  cob_preliminar <- cbind(corais, cob_preliminar)
+  
+  ;cob_preliminar
+  
+  }
+)
+
+
+# por em  ordem de sitios, como os peixes
+cob_bentos <- cob_bentos [match (rownames (tab_completa_site_ocasiao[[1]]), substr (cob_bentos$eventID_MOD,10,100)),]
+## cf
+substr (cob_bentos$eventID_MOD,10,100) == nord$locality_site
+
+
+
+
+#######################################################################################
+#######################################################################################
+################         covariaveis de sitio e transeccao      #######################
+#######################################################################################
+#######################################################################################
+
+## de sitio (aquelas que variam por sitio)
+
+## sitios do nordeste
+nord <- cast(peixes_subset,
+                     formula = locality_site  ~ Region,
+                     value= "IndCounting",
+                     fun.aggregate = sum)
+
+## colocar na ordem da tabela 
+nord <- nord [match (rownames (tab_completa_site_ocasiao [[1]]),nord$locality_site),]
+regiao <-  ifelse(nord [,2] >0,1,0)
+
+## profundidade do sitio de amostragem
+## fundo ou raso
+prof <- cast(peixes_subset,
+             formula = locality_site  ~ eventDepth,
+             value= "IndCounting",
+             fun.aggregate = sum)
+prof <- prof [match (rownames (tab_completa_site_ocasiao [[1]]),prof$locality_site),]
+prof$fundo <- ifelse (prof$fundo > 0,2,0)
+prof$raso <- ifelse (prof$raso > 0,1,0)
+
+# cf ordem
+# prof$locality_site == rownames(tab_completa_site_ocasiao[[1]])
+
+prof <- prof [,-1] ## remover os nomes 
+prof <- apply (prof,1,max) ## obter o maximo da linha (transformr em vetor onde 1=raso, 2=fundo)
+
+## tipo de recife
+tipo_recife <- cast(bentos_subset,
+                    formula = eventID_MOD  ~ Reef,
+                    value= "value",
+                    fun.aggregate = mean)
+
+tipo_recife <- tipo_recife [match (rownames (tab_completa_site_ocasiao[[1]]), substr (tipo_recife$eventID_MOD,10,100)),]
+tipo_recife <- as.factor (ifelse (is.na (tipo_recife  [,2]) != T, "1","0") )
+
+## fazer uma tabela de observacao por especie
+
+trans_obs <-  lapply (unique_comb_locality_site, function (i)
+  cast (peixes_subset [which(peixes_subset$locality_site == i),], 
+        locality_site~transection_number,
+        value="ID.observer",
+        fun.aggregate = min))
+
+## obs to add, NA nos transectos inexistentes
+obs_to_add <- lapply (trans_obs, function (i) 
+  matrix (NA, nrow=1,
+          ncol = length (seq (1,58) [which (seq (1,58) %in% colnames (i) [-1]  == F)]),
+          dimnames = list (NULL,
+                           seq (1,58) [which (seq (1,58) %in% colnames (i) [-1]  == F)]
+          )
+  )
+)
+
+## juntar os transectos existentes e inexistentes
+binded_obs <- lapply (seq(1,length(obs_to_add)), function (i)
+  
+  cbind(trans_obs[[i]][,-1],obs_to_add[[i]])
+  
+)
+
+## botar em ordem
+binded_obs <- lapply (binded_obs, function (i)
+  i [order (as.numeric(colnames(i)))]
+)
+names(binded_obs) <- unique_comb_locality_site
+## tabela
+
+tabela_obs <- do.call(rbind, binded_obs)
+## transect depth
+#tab_trans <- cast(peixes_subset,
+#                         formula = eventID_MOD + transection_number ~ eventDepth#,
+#                         #value= "ID.observer",
+#                         #fun.aggregate = min
+#                  )
+
+## tabela de profundidade dos transectos
+#tab_trans <- cast (tab_trans, 
+#      formula = eventID_MOD ~ transection_number,
+#      value= "fundo") ## botar o fundo como valor
+
+## transformar o 0 em raso, e o valor em fundo
+#tab_trans <- ifelse (tab_trans [,-1] == 0, "raso", "fundo")
+#tab_trans <- apply (tab_trans,2,as.factor)
+
+#require(vegan)
+## number of transects per site
+#number_trans <- rowSums (is.na(tab_trans)!=T)
+#number_trans <- decostand (log(number_trans),"standardize")
+
+
+### locais sem as 5 sp de corais foco do estudo
+cob_bentos [c(11,24, 27),c(1,which (colnames(cob_bentos) %in% sp_corais))]
+cob_bentos [c(11,24, 27),c(1,which (colnames(cob_bentos) %in% sp_corais))]
+
+## pegar uma especie da lista, por vez, e fazer um vetor de valores
+
+cob_coral <- lapply (sp_corais, function (i)
+  cob_bentos[,which(colnames(cob_bentos) == i)]
+)
+
+## colocar os nomes
+names(cob_coral) <- sp_corais
+
+# por genero
+cob_coral_genero <- lapply (genero, function (i)
+  data.frame(cover=cob_bentos[,grep (i, colnames(cob_bentos))]))
+
+cob_coral_genero <- lapply (cob_coral_genero, rowSums)
+
+## colocar os nomes
+names(cob_coral_genero) <- genero
+
+## transformar em porcentagem
+cob_coral <- lapply (cob_coral, function (i) i *100)
+cob_coral_genero <- lapply (cob_coral_genero, function (i) i *100)
+#rowSums (do.call (cbind,cob_coral))
+
+## remover os corais raros
+cob_coral <- cob_coral [which (lapply (lapply (cob_coral, function (i) i>0),sum) >= 6)]
+cob_coral_genero <- cob_coral_genero [which (lapply (lapply (cob_coral_genero, function (i) i>0),sum) >= 6)]
+
+## salvar uma tabela para interpretacao
+tabela_cob_coral <- do.call (cbind, cob_coral)
+tabela_cob_coral_genero <- do.call (cbind, cob_coral_genero)
+
+## obter dados de cobertura dos corais
+coordenadas_bentos <- aggregate(bentos_subset, 
+                                by = list(bentos_subset$eventID_MOD),
+                                FUN=mean)[,c("Group.1","Lon", "Lat")]
+
+# por em  ordem de sitios, como os peixes
+coordenadas_bentos <- coordenadas_bentos [match (rownames (tab_completa_site_ocasiao[[1]]), substr (coordenadas_bentos$Group.1,10,100)),]
+
+tabela_cob_coral <- cbind(coordenadas_bentos, tabela_cob_coral)
+tabela_cob_coral_genero <- cbind(coordenadas_bentos, tabela_cob_coral_genero)
+
+## cf
+
+require(vegan)
+cob_coral <- lapply (cob_coral, decostand,"standardize")
+cob_coral_genero <- lapply (cob_coral_genero, decostand,"standardize")
+
+## OBTER A ID DE TODAS AS ESPECIES DE PEIXES ENCONTRADAS POR MORAIS
+todas_sp_Morais <- unique (peixes$ScientificName)
+
+### save data
+
+save (arranjo_deteccoes_sitio_transeccao,
+      cob_coral,
+      cob_coral_genero,
+      prof,
+      tipo_recife,
+      especie,
+      todas_sp_Morais,
+      tabela_obs,
+      tabela_cob_coral,
+      tabela_cob_coral_genero,
+      file="Dados_site_occ_mod.RData")
