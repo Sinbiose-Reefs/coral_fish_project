@@ -1,14 +1,19 @@
 
 
+## remover os corais raros (< 6 sitios)
+## remover as especies de peixes que nao coocorreram com os corais
+#### PS: nao sei como fazer isto
 
+#### ToDo nos dados
+# ver o que aconteceu com o observador 8
 
+#### ToDo no modelo
 ## rodar de novo o modelo com coral no psi
 ## lembrar de monitorar intercept psi
+## beta1 aleatorio
 
 
-https://stats.stackexchange.com/questions/41536/how-can-i-model-a-proportion-with-bugs-jags-stan
+# https://stats.stackexchange.com/questions/41536/how-can-i-model-a-proportion-with-bugs-jags-stan
 
-beta1 aleatorio
 
-ver o que aconteceu com o observador 8
 
