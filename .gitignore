@@ -5,3 +5,7 @@
 output
 papers
 MS_presentation
+R/modelos_previos
+data/traits
+R/*.txt
+*.csv

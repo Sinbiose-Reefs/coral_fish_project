@@ -12,7 +12,8 @@ bentos <- read.xlsx(here("data","detection","Updated_compiled_quadrats_allsites.
                     sheet = 1, colNames = TRUE)
 
 ## dados dos peixes
-peixes <- read.csv(here("data", "detection","UpdatedData_RMorais_et_al_2017.csv"))
+peixes <- read.xlsx(here("data","detection","UpdatedData_RMorais_et_al_2017.xlsx"),
+                    sheet = 1, colNames = TRUE)
 
 ### listagem dos locais com cobertura de coral, segundo Aued et al. 2018 PLoOne
 locais_corais <- c("rgnor_parrachos",
@@ -353,6 +354,8 @@ cob_bentos <- lapply (cob_bentos, function (i) {
   
   }
 )
+
+
 
 
 # por em  ordem de sitios, como os peixes
