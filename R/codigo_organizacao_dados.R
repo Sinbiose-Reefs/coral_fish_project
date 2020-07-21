@@ -355,14 +355,70 @@ cob_bentos <- lapply (cob_bentos, function (i) {
   }
 )
 
+## agora tem que inserir na tabela colunas para os videos que faltam em alguns sitios
+maximo_videos <-  max(unlist (lapply (cob_bentos,ncol)))+1  ## + 1 para nao dar problema para o dataset completo
 
+imput_coral_data <- lapply (cob_bentos, function (i)
+  
+    (matrix (NA, 
+      nrow= nrow (i),
+      ncol = maximo_videos - ncol (i),
+      dimnames = list (i$corais)))
+)
 
+## agora colar na tabela de cobertura
 
-# por em  ordem de sitios, como os peixes
-cob_bentos <- cob_bentos [match (rownames (tab_completa_site_ocasiao[[1]]), substr (cob_bentos$eventID_MOD,10,100)),]
-## cf
-substr (cob_bentos$eventID_MOD,10,100) == nord$locality_site
+imputed_coral_data <- lapply (seq (1, length (cob_bentos)), function (i)
+  
+  cbind (cob_bentos [[i]],
+       add = imput_coral_data [[i]])
+)
 
+## ajustar novamente o nome das colunas
+
+imputed_coral_data <- lapply (imputed_coral_data, function (i) {
+
+  colnames (i)[-1] <- seq (1,length (colnames (i)[-1]))
+
+  ; i ## return i 
+  
+  })
+
+## neste formato, a especie de coral esta na linha, o video_number na coluna,
+## e o sitio na lista; desmanchar para oragnizar no formato array
+## usar do.call para tornar um DF
+
+lista_coral_sitio <- lapply (seq (1,length(sp_corais)), function (k) 
+  do.call(rbind, lapply (imputed_coral_data, function (i)
+     
+             i [k,]
+)))
+
+## cf dimensoes
+# length(lista_coral_sitio)# n species
+# ncol(lista_coral_sitio [[1]]) ## numero videos
+# nrow(lista_coral_sitio [[1]]) ## numero sites
+
+names(lista_coral_sitio) <- sp_corais
+
+# remover a primeira coluna de cada tabela (nome da sp)
+
+tab_completa_site_ocasiao_coral <-  lapply (lista_coral_sitio, function (i) 
+  
+  i[,-1]
+  
+  )
+names (tab_completa_site_ocasiao_coral ) <- sp_corais
+
+### transformar a lista em array
+
+arranjo_deteccoes_sitio_video_coral <-   array(unlist(tab_completa_site_ocasiao_coral), 
+                                              dim = c(nrow(tab_completa_site_ocasiao_coral[[1]]), 
+                                                      ncol(tab_completa_site_ocasiao_coral[[1]]), 
+                                                      length(tab_completa_site_ocasiao_coral)),
+                                              dimnames = list (NULL,
+                                                               NULL,
+                                                               sp_corais))
 
 
 
