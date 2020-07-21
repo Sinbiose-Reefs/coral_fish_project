@@ -302,6 +302,13 @@ arranjo_deteccoes_sitio_transeccao [arranjo_deteccoes_sitio_transeccao > 1] <- 1
 ## obter dados de cobertura dos corais
 
 sitios_bentos <- unique (bentos_subset$eventID_MOD)
+sitios_bentos <- gsub ("se_reefs.","",gsub ("ne_reefs.","",sitios_bentos))
+
+## fechar com os nomes dos sitios dos dados de peixes
+sitios_bentos <- sitios_bentos[match(rownames (tab_completa_site_ocasiao[[1]]), sitios_bentos)]
+
+## editar tb na tabela original
+bentos_subset$eventID_MOD <- gsub ("se_reefs.","",gsub ("ne_reefs.","",bentos_subset$eventID_MOD))
 
 ## uma tabela dinamica por sitio, com a especie na linha, e o video na coluna
 cob_bentos <- lapply (sitios_bentos, function (i)
@@ -408,6 +415,7 @@ tab_completa_site_ocasiao_coral <-  lapply (lista_coral_sitio, function (i)
   i[,-1]
   
   )
+
 names (tab_completa_site_ocasiao_coral ) <- sp_corais
 
 ### transformar a lista em array
@@ -420,11 +428,15 @@ arranjo_deteccoes_sitio_video_coral <-   array(unlist(tab_completa_site_ocasiao_
                                                                NULL,
                                                                sp_corais))
 
+## remover os corais raros (aqueles que foram detectados em menos de 6 sitios)
+cob_coral <- cob_coral [which (lapply (lapply (cob_coral, function (i) i>0),sum) >= 6)]
+cob_coral_genero <- cob_coral_genero [which (lapply (lapply (cob_coral_genero, function (i) i>0),sum) >= 6)]
+
 
 
 #######################################################################################
 #######################################################################################
-################         covariaveis de sitio e transeccao      #######################
+################         covariaveis de sitio                   #######################
 #######################################################################################
 #######################################################################################
 
@@ -465,7 +477,21 @@ tipo_recife <- cast(bentos_subset,
 tipo_recife <- tipo_recife [match (rownames (tab_completa_site_ocasiao[[1]]), substr (tipo_recife$eventID_MOD,10,100)),]
 tipo_recife <- as.factor (ifelse (is.na (tipo_recife  [,2]) != T, "1","0") )
 
-## fazer uma tabela de observacao por especie
+## coordenadas geográficas para modelo de estimativa de cobertura dos corais
+
+coordenadas <- aggregate(bentos_subset, 
+                         by= list (bentos_subset$eventID_MOD), 
+                         FUN=mean)[c("Group.1","Lon","Lat")]
+
+coordenadas [match(sitios_bentos,coordenadas$Group.1),]
+
+#######################################################################################
+#######################################################################################
+################         covariaveis de observacao              #######################
+#######################################################################################
+#######################################################################################
+ 
+## covariaveis que variam por sitio e por transeccao (neste caso, o observador)
 
 trans_obs <-  lapply (unique_comb_locality_site, function (i)
   cast (peixes_subset [which(peixes_subset$locality_site == i),], 
@@ -547,9 +573,6 @@ cob_coral <- lapply (cob_coral, function (i) i *100)
 cob_coral_genero <- lapply (cob_coral_genero, function (i) i *100)
 #rowSums (do.call (cbind,cob_coral))
 
-## remover os corais raros
-cob_coral <- cob_coral [which (lapply (lapply (cob_coral, function (i) i>0),sum) >= 6)]
-cob_coral_genero <- cob_coral_genero [which (lapply (lapply (cob_coral_genero, function (i) i>0),sum) >= 6)]
 
 ## salvar uma tabela para interpretacao
 tabela_cob_coral <- do.call (cbind, cob_coral)
