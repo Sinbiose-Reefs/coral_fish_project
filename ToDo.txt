@@ -3,6 +3,7 @@
 #### PS: fazer isto apos rodar os modelos para os corais
 
 #### ToDo nos dados
+# rodar os modelos dos corais, e depois filtrar as especies de peixes para evitar mismatch espacial
 
 #### ToDo no modelo
 ## rodar de novo o modelo com coral no psi
