@@ -18,6 +18,7 @@
 sink(here ("output","StaticCARModel_coral.txt"))
 
 cat("
+
 model {
 
   # prior for detection probability
@@ -31,7 +32,7 @@ model {
   rho[1:nsite] ~ car.normal(adj[], weights[], num[], tau)
   
   # hyperprior of rho 
-  vrho ~ dnorm(0, 0.2) I(0,)
+  vrho ~ dnorm(0, 0.5) I(0,)
   tau  <- 1/vrho
   
   # Ecological submodel: Define state conditional on parameters
@@ -73,22 +74,6 @@ sink()
 
 source("R/packages_model_coral.R")
 
-#############################################
-############### load data
-#############################################
-
-load (here ("output", "Data_coral_detection.RData"))
-
-# Generate the neighbours
-coord <- coordenadas [,c("Lon","Lat")]
-coordinates(coord) <- ~ Lon + Lat
-neigh <- dnearneigh((coord), 0, 5)
-plot(neigh,coord)
-# Number of neighbours
-table(card(neigh))
-# Convert the neighbourhood
-winnb <- nb2WB(neigh)
-
 ## Parameters to monitor
   
 params <- c(
@@ -109,12 +94,30 @@ params <- c(
 )
 
 # MCMC settings
-ni <- 50000
-nt <- 10
-nb <- 40000
+ni <- 100000
+nt <- 100
+nb <- 80000
 nc <- 3
-na <- 30000
+na <- 60000
 
+
+#############################################
+############### load data
+#############################################
+
+load (here ("output", "Data_coral_detection.RData"))
+
+# Generate the neighbours
+coord <- coordenadas [,c("Lon","Lat")]
+coordinates(coord) <- ~ Lon + Lat
+neigh <- dnearneigh((coord), 0, 3)
+plot(neigh,coord)
+# Number of neighbours
+table(card(neigh))
+# Convert the neighbourhood
+winnb <- nb2WB(neigh)
+
+################################
 ## parallel-processing settings
 cl <- makeCluster(2) ## number of cores = generally ncores -1
 
@@ -130,6 +133,9 @@ clusterExport(cl, c("df_coral_data",
 
 samples_coral <- parLapply (cl,df_coral_data, function (i) {
       
+  
+  #i= df_coral_data[[4]]
+  
   str(win.data<- list(y=  i[,"y"], 
                     nsite = max (i[,"M"]),
                     nobs = nrow (i),
@@ -159,7 +165,7 @@ samples_coral <- parLapply (cl,df_coral_data, function (i) {
                 n.burnin = nb, 
                 DIC = T,
                 bugs.directory = "C:/Program Files (x86)/winbugs14_unrestricted/WinBUGS14",
-                debug=F) ## you don't need close manually if debug = F 
+                debug=T) ## you don't need close manually if debug = F 
 
   
   ; samples
@@ -171,8 +177,296 @@ samples_coral <- parLapply (cl,df_coral_data, function (i) {
 stopCluster(cl)
   
   
+samples_coral
+  
+###############################################################
+#### more adjacency
+neigh <- dnearneigh((coord), 0, 6)
+plot(neigh,coord)
+# Number of neighbours
+table(card(neigh))
+# Convert the neighbourhood
+winnb <- nb2WB(neigh)
+  
+################################
+## parallel-processing settings
+cl <- makeCluster(2) ## number of cores = generally ncores -1
+
+# exportar pacote para os cores
+clusterEvalQ(cl, library(R2WinBUGS))
+clusterEvalQ(cl, library(here))
+
+# export your data and function
+clusterExport(cl, c("df_coral_data",
+                    "winnb",
+                    "ni","nt","nb","nc","na",
+                    "params"))
+
+samples_coral_six_adj <- parLapply (cl,df_coral_data, function (i) {
   
   
+  #i= df_coral_data[[4]]
+  
+  str(win.data<- list(y=  i[,"y"], 
+                      nsite = max (i[,"M"]),
+                      nobs = nrow (i),
+                      site = i[,"M"],
+                      occa = i [,"J"],
+                      num = winnb$num, 
+                      adj = winnb$adj, 
+                      weights = winnb$weights))
+  
+  # Observed occurrence as inits for z
+  zst <- aggregate (i[,"y"] , 
+                    list (i[,"M"]),
+                    FUN=max)$x
+  
+  ## inits
+  inits <- function(){list(z = zst, 
+                           rho = rep(0, win.data$nsite))}
+  
+  # run winbugs
+  
+  samples_six_adj <- bugs(data = win.data, parameters.to.save = params, 
+                  model.file = here ("output","StaticCARModel_coral.txt"), 
+                  inits = inits,
+                  n.chains = nc, 
+                  n.thin = nt, 
+                  n.iter = ni, 
+                  n.burnin = nb, 
+                  DIC = T,
+                  bugs.directory = "C:/Program Files (x86)/winbugs14_unrestricted/WinBUGS14",
+                  debug=T) ## you don't need close manually if debug = F 
   
   
+  ; samples_six_adj
   
+}
+
+)
+
+stopCluster(cl)
+
+
+samples_coral_six_adj
+
+
+###############################################################
+#### even more adjacency
+neigh <- dnearneigh((coord), 0, 9)
+plot(neigh,coord)
+# Number of neighbours
+table(card(neigh))
+# Convert the neighbourhood
+winnb <- nb2WB(neigh)
+
+################################
+## parallel-processing settings
+cl <- makeCluster(2) ## number of cores = generally ncores -1
+
+# exportar pacote para os cores
+clusterEvalQ(cl, library(R2WinBUGS))
+clusterEvalQ(cl, library(here))
+
+# export your data and function
+clusterExport(cl, c("df_coral_data",
+                    "winnb",
+                    "ni","nt","nb","nc","na",
+                    "params"))
+
+samples_coral_nine_adj <- parLapply (cl,df_coral_data, function (i) {
+  
+  
+  #i= df_coral_data[[4]]
+  
+  str(win.data<- list(y=  i[,"y"], 
+                      nsite = max (i[,"M"]),
+                      nobs = nrow (i),
+                      site = i[,"M"],
+                      occa = i [,"J"],
+                      num = winnb$num, 
+                      adj = winnb$adj, 
+                      weights = winnb$weights))
+  
+  # Observed occurrence as inits for z
+  zst <- aggregate (i[,"y"] , 
+                    list (i[,"M"]),
+                    FUN=max)$x
+  
+  ## inits
+  inits <- function(){list(z = zst, 
+                           rho = rep(0, win.data$nsite))}
+  
+  # run winbugs
+  
+  samples_nine_adj <- bugs(data = win.data, parameters.to.save = params, 
+                          model.file = here ("output","StaticCARModel_coral.txt"), 
+                          inits = inits,
+                          n.chains = nc, 
+                          n.thin = nt, 
+                          n.iter = ni, 
+                          n.burnin = nb, 
+                          DIC = T,
+                          bugs.directory = "C:/Program Files (x86)/winbugs14_unrestricted/WinBUGS14",
+                          debug=T) ## you don't need close manually if debug = F 
+  
+  
+  ; samples_nine_adj
+  
+}
+
+)
+
+stopCluster(cl)
+
+
+samples_coral_nine_adj [[1]]
+
+
+###############################################################
+#### even more more adjacency
+neigh <- dnearneigh((coord), 0, 12)
+plot(neigh,coord)
+# Number of neighbours
+table(card(neigh))
+# Convert the neighbourhood
+winnb <- nb2WB(neigh)
+
+################################
+## parallel-processing settings
+cl <- makeCluster(2) ## number of cores = generally ncores -1
+
+# exportar pacote para os cores
+clusterEvalQ(cl, library(R2WinBUGS))
+clusterEvalQ(cl, library(here))
+
+# export your data and function
+clusterExport(cl, c("df_coral_data",
+                    "winnb",
+                    "ni","nt","nb","nc","na",
+                    "params"))
+
+samples_coral_twelve_adj <- parLapply (cl,df_coral_data, function (i) {
+  
+  
+  #i= df_coral_data[[4]]
+  
+  str(win.data<- list(y=  i[,"y"], 
+                      nsite = max (i[,"M"]),
+                      nobs = nrow (i),
+                      site = i[,"M"],
+                      occa = i [,"J"],
+                      num = winnb$num, 
+                      adj = winnb$adj, 
+                      weights = winnb$weights))
+  
+  # Observed occurrence as inits for z
+  zst <- aggregate (i[,"y"] , 
+                    list (i[,"M"]),
+                    FUN=max)$x
+  
+  ## inits
+  inits <- function(){list(z = zst, 
+                           rho = rep(0, win.data$nsite))}
+  
+  # run winbugs
+  
+  samples_twelve_adj <- bugs(data = win.data, parameters.to.save = params, 
+                           model.file = here ("output","StaticCARModel_coral.txt"), 
+                           inits = inits,
+                           n.chains = nc, 
+                           n.thin = nt, 
+                           n.iter = ni, 
+                           n.burnin = nb, 
+                           DIC = T,
+                           bugs.directory = "C:/Program Files (x86)/winbugs14_unrestricted/WinBUGS14",
+                           debug=T) ## you don't need close manually if debug = F 
+  
+  
+  ; samples_twelve_adj
+  
+}
+
+)
+
+stopCluster(cl)
+
+
+samples_coral_twelve_adj [[1]]
+
+###
+
+
+###############################################################
+#### even more more adjacency
+neigh <- dnearneigh((coord), 0, 20)
+plot(neigh,coord)
+# Number of neighbours
+table(card(neigh))
+# Convert the neighbourhood
+winnb <- nb2WB(neigh)
+
+################################
+## parallel-processing settings
+cl <- makeCluster(2) ## number of cores = generally ncores -1
+
+# exportar pacote para os cores
+clusterEvalQ(cl, library(R2WinBUGS))
+clusterEvalQ(cl, library(here))
+
+# export your data and function
+clusterExport(cl, c("df_coral_data",
+                    "winnb",
+                    "ni","nt","nb","nc","na",
+                    "params"))
+
+samples_coral_twenty_adj <- parLapply (cl,df_coral_data, function (i) {
+  
+  
+  #i= df_coral_data[[4]]
+  
+  str(win.data<- list(y=  i[,"y"], 
+                      nsite = max (i[,"M"]),
+                      nobs = nrow (i),
+                      site = i[,"M"],
+                      occa = i [,"J"],
+                      num = winnb$num, 
+                      adj = winnb$adj, 
+                      weights = winnb$weights))
+  
+  # Observed occurrence as inits for z
+  zst <- aggregate (i[,"y"] , 
+                    list (i[,"M"]),
+                    FUN=max)$x
+  
+  ## inits
+  inits <- function(){list(z = zst, 
+                           rho = rep(0, win.data$nsite))}
+  
+  # run winbugs
+  
+  samples_twenty_adj <- bugs(data = win.data, parameters.to.save = params, 
+                             model.file = here ("output","StaticCARModel_coral.txt"), 
+                             inits = inits,
+                             n.chains = nc, 
+                             n.thin = nt, 
+                             n.iter = ni, 
+                             n.burnin = nb, 
+                             DIC = T,
+                             bugs.directory = "C:/Program Files (x86)/winbugs14_unrestricted/WinBUGS14",
+                             debug=T) ## you don't need close manually if debug = F 
+  
+  
+  ; samples_twenty_adj
+  
+}
+
+)
+
+stopCluster(cl)
+
+
+samples_coral_twenty_adj [[1]]
+
+###
+
