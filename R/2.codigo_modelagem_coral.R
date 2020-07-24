@@ -82,7 +82,7 @@ params <- c(
   "p",
   
   ### occupancy parameters
-  "z","psi",
+  "z","psi","psi0",
   "beta0","intercept.psi",
    "rho","tau", "vrho",
  
@@ -165,7 +165,7 @@ samples_coral <- parLapply (cl,df_coral_data, function (i) {
                 n.burnin = nb, 
                 DIC = T,
                 bugs.directory = "C:/Program Files (x86)/winbugs14_unrestricted/WinBUGS14",
-                debug=T) ## you don't need close manually if debug = F 
+                debug=F) ## you don't need close manually if debug = F 
 
   
   ; samples
@@ -181,7 +181,7 @@ samples_coral
   
 ###############################################################
 #### more adjacency
-neigh <- dnearneigh((coord), 0, 6)
+neigh <- dnearneigh((coord),0,6)
 plot(neigh,coord)
 # Number of neighbours
 table(card(neigh))
@@ -236,7 +236,7 @@ samples_coral_six_adj <- parLapply (cl,df_coral_data, function (i) {
                   n.burnin = nb, 
                   DIC = T,
                   bugs.directory = "C:/Program Files (x86)/winbugs14_unrestricted/WinBUGS14",
-                  debug=T) ## you don't need close manually if debug = F 
+                  debug=F) ## you don't need close manually if debug = F 
   
   
   ; samples_six_adj
@@ -308,7 +308,7 @@ samples_coral_nine_adj <- parLapply (cl,df_coral_data, function (i) {
                           n.burnin = nb, 
                           DIC = T,
                           bugs.directory = "C:/Program Files (x86)/winbugs14_unrestricted/WinBUGS14",
-                          debug=T) ## you don't need close manually if debug = F 
+                          debug=F) ## you don't need close manually if debug = F 
   
   
   ; samples_nine_adj
@@ -380,7 +380,7 @@ samples_coral_twelve_adj <- parLapply (cl,df_coral_data, function (i) {
                            n.burnin = nb, 
                            DIC = T,
                            bugs.directory = "C:/Program Files (x86)/winbugs14_unrestricted/WinBUGS14",
-                           debug=T) ## you don't need close manually if debug = F 
+                           debug=F) ## you don't need close manually if debug = F 
   
   
   ; samples_twelve_adj
@@ -454,7 +454,7 @@ samples_coral_twenty_adj <- parLapply (cl,df_coral_data, function (i) {
                              n.burnin = nb, 
                              DIC = T,
                              bugs.directory = "C:/Program Files (x86)/winbugs14_unrestricted/WinBUGS14",
-                             debug=T) ## you don't need close manually if debug = F 
+                             debug=F) ## you don't need close manually if debug = F 
   
   
   ; samples_twenty_adj
@@ -466,7 +466,103 @@ samples_coral_twenty_adj <- parLapply (cl,df_coral_data, function (i) {
 stopCluster(cl)
 
 
-samples_coral_twenty_adj [[1]]
+###############################################################
+#### even more more more more adjacency
+neigh <- dnearneigh((coord), 0, 25)
+plot(neigh,coord)
+# Number of neighbours
+table(card(neigh))
+# Convert the neighbourhood
+winnb <- nb2WB(neigh)
+
+################################
+## parallel-processing settings
+cl <- makeCluster(2) ## number of cores = generally ncores -1
+
+# exportar pacote para os cores
+clusterEvalQ(cl, library(R2WinBUGS))
+clusterEvalQ(cl, library(here))
+
+# export your data and function
+clusterExport(cl, c("df_coral_data",
+                    "winnb",
+                    "ni","nt","nb","nc","na",
+                    "params"))
+
+samples_coral_twentyfive_adj <- parLapply (cl,df_coral_data, function (i) {
+  
+  
+  #i= df_coral_data[[4]]
+  
+  str(win.data<- list(y=  i[,"y"], 
+                      nsite = max (i[,"M"]),
+                      nobs = nrow (i),
+                      site = i[,"M"],
+                      occa = i [,"J"],
+                      num = winnb$num, 
+                      adj = winnb$adj, 
+                      weights = winnb$weights))
+  
+  # Observed occurrence as inits for z
+  zst <- aggregate (i[,"y"] , 
+                    list (i[,"M"]),
+                    FUN=max)$x
+  
+  ## inits
+  inits <- function(){list(z = zst, 
+                           rho = rep(0, win.data$nsite))}
+  
+  # run winbugs
+  
+  samples_twentyfive_adj <- bugs(data = win.data, parameters.to.save = params, 
+                             model.file = here ("output","StaticCARModel_coral.txt"), 
+                             inits = inits,
+                             n.chains = nc, 
+                             n.thin = nt, 
+                             n.iter = ni, 
+                             n.burnin = nb, 
+                             DIC = T,
+                             bugs.directory = "C:/Program Files (x86)/winbugs14_unrestricted/WinBUGS14",
+                             debug=F) ## you don't need close manually if debug = F 
+  
+  
+  ; samples_twentyfive_adj
+  
+}
+
+)
+
+stopCluster(cl)
+
+
+samples_coral [[1]]$mean$psi
+samples_coral_six_adj [[1]]$mean$psi
+samples_coral_nine_adj [[1]]$mean$psi
+samples_coral_twelve_adj [[1]]$mean$psi
+samples_coral_twenty_adj [[1]]$mean$psi
+samples_coral_twentyfive_adj [[1]]$mean$psi
+
+samples_coral [[1]]$sd$psi
+samples_coral_six_adj [[1]]$sd$psi
+samples_coral_nine_adj [[1]]$sd$psi
+samples_coral_twelve_adj [[1]]$sd$psi
+samples_coral_twenty_adj [[1]]$sd$psi
+samples_coral_twentyfive_adj [[1]]$sd$psi
+
+###
+samples_coral [[1]]$mean$z
+samples_coral_six_adj [[1]]$mean$z
+samples_coral_nine_adj [[1]]$mean$z
+samples_coral_twelve_adj [[1]]$mean$z
+samples_coral_twenty_adj [[1]]$mean$z
+samples_coral_twentyfive_adj [[1]]$mean$z
+
+samples_coral [[1]]$sd$z
+samples_coral_six_adj [[1]]$sd$z
+samples_coral_nine_adj [[1]]$sd$z
+samples_coral_twelve_adj [[1]]$sd$z
+samples_coral_twenty_adj [[1]]$sd$z
+samples_coral_twentyfive_adj [[1]]$sd$z
 
 ###
 
