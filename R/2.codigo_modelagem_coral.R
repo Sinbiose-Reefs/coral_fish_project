@@ -108,28 +108,6 @@ params <- c(
   
 )
 
-
-## data
-i=1
-str(win.data<- list(y= df_coral_data [[i]][,"y"], 
-                    nsite = max (df_coral_data [[i]][,"M"]),
-                    nobs = nrow (df_coral_data [[i]]),
-                    #nocca = max(df_coral_data [[i]]$J),
-                    site = df_coral_data [[i]]$M,
-                    occa = df_coral_data [[i]]$J,
-                    num = winnb$num, 
-                    adj = winnb$adj, 
-                    weights = winnb$weights))
-
-# Observed occurrence as inits for z
-zst <- aggregate (df_coral_data [[i]][,"y"] , list (df_coral_data [[i]][,"M"]),
-           FUN=max)$x
-  
-## inits
-inits <- function(){list(z = zst, 
-                         rho = rep(0, win.data$nsite))}
-
-################
 # MCMC settings
 ni <- 50000
 nt <- 10
@@ -137,9 +115,42 @@ nb <- 40000
 nc <- 3
 na <- 30000
 
-# run winbugs
+## parallel-processing settings
+cl <- makeCluster(2) ## number of cores = generally ncores -1
 
-samples <- bugs(data = win.data, parameters.to.save = params, 
+# exportar pacote para os cores
+clusterEvalQ(cl, library(R2WinBUGS))
+clusterEvalQ(cl, library(here))
+
+# export your data and function
+clusterExport(cl, c("df_coral_data",
+                    "winnb",
+                    "ni","nt","nb","nc","na",
+                    "params"))
+
+samples_coral <- parLapply (cl,df_coral_data, function (i) {
+      
+  str(win.data<- list(y=  i[,"y"], 
+                    nsite = max (i[,"M"]),
+                    nobs = nrow (i),
+                    site = i[,"M"],
+                    occa = i [,"J"],
+                    num = winnb$num, 
+                    adj = winnb$adj, 
+                    weights = winnb$weights))
+
+  # Observed occurrence as inits for z
+  zst <- aggregate (i[,"y"] , 
+                  list (i[,"M"]),
+                  FUN=max)$x
+  
+  ## inits
+  inits <- function(){list(z = zst, 
+                         rho = rep(0, win.data$nsite))}
+  
+  # run winbugs
+
+  samples <- bugs(data = win.data, parameters.to.save = params, 
                 model.file = here ("output","StaticCARModel_coral.txt"), 
                 inits = inits,
                 n.chains = nc, 
@@ -148,13 +159,16 @@ samples <- bugs(data = win.data, parameters.to.save = params,
                 n.burnin = nb, 
                 DIC = T,
                 bugs.directory = "C:/Program Files (x86)/winbugs14_unrestricted/WinBUGS14",
-                debug=T)
+                debug=F) ## you don't need close manually if debug = F 
 
   
-samples
+  ; samples
   
+  }
   
+)
   
+stopCluster(cl)
   
   
   
