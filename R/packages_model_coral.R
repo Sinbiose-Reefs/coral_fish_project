@@ -3,7 +3,7 @@ require(rgdal)
 require(raster)
 require(rgeos)
 require (spdep) 
-
+require(maps)
 ## pacote para transitar entre pastas
 require(here)
 
