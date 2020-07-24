@@ -177,8 +177,6 @@ samples_coral <- parLapply (cl,df_coral_data, function (i) {
 stopCluster(cl)
   
   
-samples_coral
-  
 ###############################################################
 #### more adjacency
 neigh <- dnearneigh((coord),0,6)
@@ -246,9 +244,6 @@ samples_coral_six_adj <- parLapply (cl,df_coral_data, function (i) {
 )
 
 stopCluster(cl)
-
-
-samples_coral_six_adj
 
 
 ###############################################################
@@ -320,9 +315,6 @@ samples_coral_nine_adj <- parLapply (cl,df_coral_data, function (i) {
 stopCluster(cl)
 
 
-samples_coral_nine_adj [[1]]
-
-
 ###############################################################
 #### even more more adjacency
 neigh <- dnearneigh((coord), 0, 12)
@@ -390,12 +382,6 @@ samples_coral_twelve_adj <- parLapply (cl,df_coral_data, function (i) {
 )
 
 stopCluster(cl)
-
-
-samples_coral_twelve_adj [[1]]
-
-###
-
 
 ###############################################################
 #### even more more adjacency
@@ -465,7 +451,6 @@ samples_coral_twenty_adj <- parLapply (cl,df_coral_data, function (i) {
 
 stopCluster(cl)
 
-
 ###############################################################
 #### even more more more more adjacency
 neigh <- dnearneigh((coord), 0, 25)
@@ -528,11 +513,29 @@ samples_coral_twentyfive_adj <- parLapply (cl,df_coral_data, function (i) {
   
   ; samples_twentyfive_adj
   
-}
+  }
 
 )
 
 stopCluster(cl)
+
+##############################################
+########### Looking the results
+
+# implications of different distances
+par(mfrow=c(2,3), mai=c(0,0,0,0),mar=c(1,1,1,1))
+map("world","Brazil",xlim=c(-50,-6),col="gray")
+plot(dnearneigh(x=(coord), 0, 3),coord,add=T)
+map("world","Brazil",xlim=c(-50,-6),col="gray")
+plot(dnearneigh((coord), 0, 6),coord,add=T)
+map("world","Brazil",xlim=c(-50,-6),col="gray")
+plot(dnearneigh((coord), 0, 9),coord,add=T)
+map("world","Brazil",xlim=c(-50,-6),col="gray")
+plot(dnearneigh((coord), 0, 12),coord,add=T)
+map("world","Brazil",xlim=c(-50,-6),col="gray")
+plot(dnearneigh((coord), 0, 20),coord,add=T)
+map("world","Brazil",xlim=c(-50,-6),col="gray" )
+plot(dnearneigh((coord), 0, 25),coord,add=T)
 
 
 samples_coral [[1]]$mean$psi
