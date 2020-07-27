@@ -426,7 +426,6 @@ df_fish_data <- lapply (seq(1,dim(arranjo_deteccoes_sitio_transeccao)[3]), funct
 )
 
 
-
 #######################################################################################
 #######################################################################################
 ### comecar a formatar os dados dos corais para os modelos de ocupacao de sitios
@@ -554,15 +553,27 @@ names (tab_completa_site_ocasiao_coral ) <- sp_corais
 
 ### transformar a lista em array
 
-arranjo_deteccoes_sitio_video_coral <-   array(unlist(tab_completa_site_ocasiao_coral), 
+arranjo_cob_coral_sitio_video <-   array(unlist(tab_completa_site_ocasiao_coral), 
                                               dim = c(nrow(tab_completa_site_ocasiao_coral[[1]]), 
                                                       ncol(tab_completa_site_ocasiao_coral[[1]]), 
                                                       length(tab_completa_site_ocasiao_coral)),
                                               dimnames = list (NULL,
                                                                NULL,
                                                                sp_corais))
+## obter informacao combinada das 3 spp de agaricia
+agaricia_sp_cover <- apply (arranjo_cob_coral_sitio_video [,,grep("Agaricia", sp_corais)],
+                      c(1,2), sum)
+
+## colar no array dos corais mais frequentes
+## array final
+arranjo_cob_coral_sitio_video <- abind(agaricia_sp_cover, arranjo_cob_coral_sitio_video )
+
+## ajustar os nomes
+dimnames(arranjo_cob_coral_sitio_video)[[3]][1] <- "Agaricia.spp"
+
 
 ## transformar cobertura em dado binario (deteccao e nao deteccao do coral k no sitio i, video j)
+arranjo_deteccoes_sitio_video_coral <- arranjo_cob_coral_sitio_video
 arranjo_deteccoes_sitio_video_coral [arranjo_deteccoes_sitio_video_coral >0] <- 1 
 
 ## numero de videos com deteccao, por sitio e especie de coral
@@ -576,21 +587,11 @@ corais_mais_freq <- which (colSums (
 ## remover os corais raros (aqueles que foram detectados em menos de 6 sitios)
 corais_mais_freq <- arranjo_deteccoes_sitio_video_coral[,,corais_mais_freq]
 
-## obter informacao combinada das 3 spp de agaricia
-agaricia_sp <- apply (arranjo_deteccoes_sitio_video_coral [,,grep("Agaricia", sp_corais)],
-       c(1,2), sum)
-agaricia_sp [agaricia_sp>0] <- 1
-
-## colar no array dos corais mais frequentes
-## array final
-arranjo_corais <- abind(agaricia_sp, corais_mais_freq )
-
-## ajustar os nomes
-dimnames(arranjo_corais)[[3]] <- c ("Agaricia.spp",
-   dimnames(corais_mais_freq) [[3]]
-  )
 ## names sp analisadas
-sp_coral <- dimnames(arranjo_corais)[[3]]
+sp_coral <- dimnames(corais_mais_freq )[[3]]
+
+### renomear corais mais frequentes para arranjo_corais
+arranjo_corais <- corais_mais_freq
 
 ## finalmente, transformar em formato longo
 
@@ -633,7 +634,8 @@ coordenadas <- coordenadas [match(sitios_bentos,coordenadas$Group.1),]
 
 ### save data - para os modelos de coral
 
-save (df_coral_data, ## df em formato longo para modelagem
+save (arranjo_cob_coral_sitio_video, ### dados de cobertura 
+      df_coral_data, ## df em formato longo para modelagem
       coordenadas,# coordenadas dos sitios
       sp_coral,## nomes das sp analisadas
       sitios_bentos,# nome dos sitios
