@@ -9,6 +9,7 @@
 ## rodar de novo o modelo com coral no psi
 ## lembrar de monitorar intercept psi
 ## beta1 aleatorio
+## testar os modelos
 
 # https://stats.stackexchange.com/questions/41536/how-can-i-model-a-proportion-with-bugs-jags-stan
 
