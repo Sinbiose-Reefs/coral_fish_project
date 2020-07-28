@@ -19,7 +19,7 @@
 #######################################
 ## modelo com efeito de observador (MODELO 1)
 ## definir o modelo, em linguagem  JAGS
-sink("StaticModel_ID_obs.txt")
+sink(here ("R","StaticModel_ID_obs.txt"))
 cat("
     
 model {
@@ -42,8 +42,12 @@ model {
   ## occupancy priors
   beta0 ~ dunif (0,1)
   intercept.psi <- logit(beta0)
-	beta1 ~ dnorm (0,0.001)	
-	
+
+  ## random coefficient
+	for (j in 1:nreg){
+    beta1[j] ~ dnorm (0,0.001)	
+	}
+  
 	# Ecological submodel: Define state conditional on parameters
 	for(i in 1:nsite){    ## occupancy model
 	
@@ -53,7 +57,7 @@ model {
     psi[i]<-max(0.00001,min(0.99999, psi0[i]))
     w[i] ~ dbern(psi[i])
                
-		logit(psi0 [i]) <- intercept.psi + beta1 * coral [i]
+		logit(psi0 [i]) <- intercept.psi + beta1[reg[i]] * coral [i]
 		                                  
 	
 	}
@@ -179,8 +183,12 @@ cat("
     ## occupancy priors
     beta0 ~ dunif (0,1)
     intercept.psi <- logit(beta0)
-    beta1 ~ dnorm (0,0.001)	
     
+    ## random coefficient
+	  for (j in 1:nreg){
+      beta1[j] ~ dnorm (0,0.001)	
+    }
+
     ## probabilidade de deteccao variando por transeccao
     # com fator aleatorio
     alpha0 ~ dunif (0,1)
@@ -203,7 +211,7 @@ cat("
        psi[i]<-max(0.00001,min(0.99999, psi0[i]))
        w[i] ~ dbern(psi[i])
     
-       logit(psi0 [i]) <- intercept.psi + beta1 * coral [i]
+       logit(psi0 [i]) <- intercept.psi + beta1 [reg[i]] * coral [i]
     
     
     }
@@ -343,10 +351,11 @@ cat("
     }
     
     ## occupancy priors
-    # beta0 ~ dunif (0,1)
-    # intercept.psi <- logit(beta0)
-    beta1 ~ dnorm (0,0.001)	
-    
+    ## random coefficient
+   	for (j in 1:nreg){
+     beta1[j] ~ dnorm (0,0.001)	
+	  }
+
     # Ecological submodel: Define state conditional on parameters
     for(i in 1:nsite){    ## occupancy model
     
@@ -356,7 +365,7 @@ cat("
        psi[i]<-max(0.00001,min(0.99999, psi0[i]))
        w[i] ~ dbern(psi[i])
     
-       logit(psi0 [i]) <- intercept.depth[prof[i]] + beta1 * coral [i]
+       logit(psi0 [i]) <- intercept.depth[prof[i]] + beta1[reg[i]] * coral [i]
     
     
     }
@@ -492,8 +501,12 @@ cat("
     ## occupancy priors
     beta0 ~ dunif (0,1)
     intercept.psi <- logit(beta0)
-    beta1 ~ dnorm (0,0.001)	
     
+    ## random coefficient
+  	for (j in 1:nreg){
+      beta1[j] ~ dnorm (0,0.001)	
+	  }
+
     # Ecological submodel: Define state conditional on parameters
     for(i in 1:nsite){    ## occupancy model
     
@@ -503,7 +516,7 @@ cat("
        psi[i]<-max(0.00001,min(0.99999, psi0[i]))
        w[i] ~ dbern(psi[i])
     
-       logit(psi0 [i]) <- intercept.psi + beta1 * coral [i]
+       logit(psi0 [i]) <- intercept.psi + beta1[reg[i]] * coral [i]
     
     
     }
@@ -615,10 +628,15 @@ sink()
 ## coral_cob_genero = cobertura de generos de coral - ver names(coral_cob_genero)
 
 
-load ("Dados_site_occ_mod.RData")
+## fish data
+load (here("output","Data_fish_detection.RData"))
 
-require(vegan)
-require(jagsUI)
+## coral data
+load (here("output","coral_occupancy_data.RData"))
+
+## load packages
+
+source("R/packages_model_fishes.R")
 
 # # # # # # # # # # # # # # # # # # # # 
 # efeito da identidade do observador
@@ -626,418 +644,403 @@ require(jagsUI)
 # remover os NAs
 # cbind profundidade
 
-df_data <- lapply (seq(1,dim(arranjo_deteccoes_sitio_transeccao)[3]), function (sp) {
-   
-   ## transforma matriz em vetor
-   y_long <- as.numeric(arranjo_deteccoes_sitio_transeccao [,,sp])
-   tabela_obs_long <- as.numeric (as.matrix(tabela_obs))
+
+################
+# MCMC settings
+ni <- 50000
+nt <- 50
+nb <- 30000
+nc <- 3
+na <- 20000
+
+###### modelo com 
+# efeito de coral no psi
+# efeito do obs no P
+# profundidade no P
+
+## Parameters to monitor
+params <- c(
+  ### detection parameters
+  "alpha.obs", "alpha.depth",
+  "intercept.p.obs", "intercept.depth",
   
-   ## ocasioes
-   df_data <- data.frame(obs= seq(1,length(y_long)),
-                        y= y_long,
-                        ID= tabela_obs_long,
-                        M = rep (seq (1,dim(arranjo_deteccoes_sitio_transeccao)[1]), 
-                                 ncol(tabela_obs)),
-                        J = unlist(
-                          lapply (seq(1,ncol(tabela_obs)), function (i) 
-                            rep (i,dim(arranjo_deteccoes_sitio_transeccao)[1]))
-                        ),
-                        prof = prof
-   )
-   
-   ## remover NAs
-   df_data <- df_data[which (is.na(df_data$ID) != T),]
+  ### occupancy parameters
+  "beta0","intercept.psi",
+  "beta1", #"beta1.sd","beta1.tau",
+  "psi",
   
-   }
+  ## goodness of fit parameters
+  "FTratioClosed",
+  "Chi2Closed",
+  "Chi2repClosed",
+  
+  ## derived par
+  "mutot",
+  "n.occ",
+  "mean.p"
 )
+
+### aplicar o modelo a cada especie de peixe e coral
+
+cl <- makeCluster(2) ## number of cores = generally ncores -1
+
+# exportar pacote para os cores
+clusterEvalQ(cl, library(jagsUI))
+clusterEvalQ(cl, library(vegan))
+clusterEvalQ(cl, library(here))
+
+# export your data and function
+clusterExport(cl, c("df_fish_data", 
+                    "covariates_site",
+                    "list_coral_data",
+                    "ni","nt","nb","nc","na",
+                    "params"))
+
+### run in parallel processing
+## aplicar o modelo para todas as especies de coral e de peixes.
+samples_OCCcoral_PdepthObsID_gen <- parLapply (cl, list_coral_data, function (coral)
   
-  ################
-  # MCMC settings
-  ni <- 50000
-  nt <- 50
-  nb <- 30000
-  nc <- 3
-  na <- 20000
+  lapply (seq(1,ncol(coral)), function (k)
   
-  ###### modelo com 
-  # efeito de coral no psi
-  # efeito do obs no P
-  # profundidade no P
-  
-  ## Parameters to monitor
-  params <- c(
-    ### detection parameters
-    "alpha.obs", "alpha.depth",
-    "intercept.p.obs", "intercept.depth",
+  lapply (seq (1,length (df_fish_data)), function (i) {
     
-    ### occupancy parameters
-    "beta0","intercept.psi",
-    "beta1", "psi",
+    ## data
+    jags.data<- list(y= df_fish_data [[i]][,"y"], 
+                     nsite = max (df_fish_data [[i]][,"M"]),
+                     prof= df_fish_data [[i]]$prof,
+                     nobs = nrow (df_fish_data [[i]]),
+                     nreg = 2,
+                     reg = covariates_site$NE_region+1,
+                     obs = df_fish_data [[i]]$ID,
+                     maxID = max(df_fish_data [[i]]$ID),
+                     #nocca = max(df_fish_data[[i]]$J),
+                     site = df_fish_data [[i]]$M,
+                     occa = df_fish_data [[i]]$J,
+                     coral= decostand (coral[,k],"standardize")[,1],
+                     e= 0.0001)
+  
+
+    ## inits
+    zst <- aggregate (df_fish_data[[i]][,"y"] , 
+                 list (df_fish_data[[i]][,"M"]),
+                 FUN=max)$x
     
-    ## goodness of fit parameters
-    "FTratioClosed",
-    "Chi2Closed",
-    "Chi2repClosed",
-    
-    ## derived par
-    "mutot",
-    "n.occ",
-    "mean.p"
-  )
-  
-  ### aplicar o modelo a cada especie de peixe e coral
-  
-  require(parallel)
-  
-  cl <- makeCluster(2) ## number of cores = generally ncores -1
-  
-  # exportar pacote para os cores
-  clusterEvalQ(cl, library(jagsUI))
-  
-  # export your data and function
-  clusterExport(cl, c("arranjo_deteccoes_sitio_transeccao",
-                      "df_data", 
-                      "cob_coral_genero",
-                      "cob_coral",
-                      "ni","nt","nb","nc","na",
-                      "params"))
-  
-  ### run in parallel processing
-  ## aplicar o modelo para todas as especies de coral e de peixes.
-  samples_OCCcoral_PdepthObsID_gen <- parLapply (cl, cob_coral_genero, function (k)
-    
-    lapply (seq (1,length (df_data)), function (i) {
-      
-      ## data
-      jags.data<- list(y= df_data [[i]][,"y"], 
-                       nsite = max (df_data [[i]][,"M"]),
-                       prof= df_data [[i]]$prof,
-                       nobs = nrow (df_data [[i]]),
-                       obs = df_data [[i]]$ID,
-                       maxID = max(df_data [[i]]$ID),
-                       nocca = max(df_data [[i]]$J),
-                       site = df_data [[i]]$M,
-                       occa = df_data [[i]]$J,
-                       coral= k[,1],
-                       e= 0.0001)
-    
-  
-      ## inits
-      zst <- apply(arranjo_deteccoes_sitio_transeccao [,,i], 1, max, na.rm = TRUE)	# Observed occurrence as inits for z
-      zst[zst == '-Inf'] <- 1 # max of c(NA,NA,NA) with na.rm = TRUE returns -Inf, change to 1
-      inits <- function(){list(z = zst)}
-  
-        # run jags
-        
-        samples <- jags(data = jags.data, params, model = "StaticModel_ID_obs.txt", inits = inits,
-                        n.chains = nc, n.thin = nt, n.iter = ni, n.burnin = nb, 
-                        DIC = T)
-     }
-    )
-  )
-  
-  stopCluster(cl)
-  
-  save(samples_OCCcoral_PdepthObsID_gen, file="samples_OCCcoral_PdepthObsID_gen.RData")
-  
-  ### EXAMINE RESULTS
-  ## chi-square statistics
-  Chi2ratioClosed <- lapply (samples_genero, function (i)
-    lapply (i, function (k)
-      k$sims.list$Chi2Closed/k$sims.list$Chi2repClosed))
-  
-  ## bayesian p-value
-  
-  bvclosed <- lapply (samples_genero, function (i)
-    (unlist(lapply (i, function (k)
-      
-      sum (k$sims.list$Chi2repClosed > k$sims.list$Chi2Closed)/
-        length(k$sims.list$Chi2repClosed)
-    ))))
-  
-  plot(samples_genero[[1]][[13]]$sims.list$Chi2Closed, 
-       samples_genero[[1]][[13]]$sims.list$Chi2repClosed)
-  abline(1,1)
-  
-  
-  ###### modelo com 
-  # efeito de coral no psi
-  # efeito do obs no P
-  # profundidade no P
-  # random-intercept P
-  
-  ## Parameters to monitor
-  params <- c(
-    ### detection parameters
-    "alpha.obs", "alpha.depth",
-    "intercept.p.obs", "intercept.depth",
-    "intercept.p",
-    "sd.p","alpha0",
-    
-    ### occupancy parameters
-    "beta0","intercept.psi",
-    "beta1", "psi",
-    
-    ## goodness of fit parameters
-    "FTratioClosed",
-    "Chi2Closed",
-    "Chi2repClosed",
-    
-    ## derived par
-    "mutot",
-    "n.occ",
-    "mean.p"
-  )
-  
-  ### aplicar o modelo a cada especie e especie de coral
-  
-  require(parallel)
-  
-  cl <- makeCluster(2) ## number of cores = generally ncores -1
-  
-  # exportar pacote para os cores
-  clusterEvalQ(cl, library(jagsUI))
-  
-  
-  # export your data and function
-  clusterExport(cl, c("arranjo_deteccoes_sitio_transeccao",
-                      "df_data", 
-                      "cob_coral_genero",
-                      "cob_coral",
-                      "ni","nt","nb","nc","na",
-                      "params"))
-  
-  ### run in parallel processing
-  ## aplicar o modelo para todas as especies de coral e de peixes.
-  samples_OCCcoral_PdepthObsIDRndm_gen <- parLapply (cl, cob_coral_genero, function (k)
-    
-    lapply (seq (1,length (df_data)), function (i) {
-      
-      ## data
-      jags.data<- list(y= df_data [[i]][,"y"], 
-                       nsite = max (df_data [[i]][,"M"]),
-                       prof= df_data [[i]]$prof,
-                       nobs = nrow (df_data [[i]]),
-                       obs = df_data [[i]]$ID,
-                       maxID = max(df_data [[i]]$ID),
-                       nocca = max(df_data [[i]]$J),
-                       site = df_data [[i]]$M,
-                       occa = df_data [[i]]$J,
-                       coral= k[,1],
-                       e= 0.0001)
-      
-      
-      ## inits
-      zst <- apply(arranjo_deteccoes_sitio_transeccao [,,i], 1, max, na.rm = TRUE)	# Observed occurrence as inits for z
-      zst[zst == '-Inf'] <- 1 # max of c(NA,NA,NA) with na.rm = TRUE returns -Inf, change to 1
-      inits <- function(){list(z = zst)}
-      
+      # Observed occurrence as inits for z
+    zst[zst == '-Inf'] <- 1 # max of c(NA,NA,NA) with na.rm = TRUE returns -Inf, change to 1
+    inits <- function(){list(z = zst,beta1=rep(0,2))}
+
       # run jags
       
-      samples <- jags(data = jags.data, params, model = "StaticModel_ID_obsRndmEff.txt", inits = inits,
+      samples <- jags(data = jags.data, params, model = here ("R","StaticModel_ID_obs.txt"), inits = inits,
                       n.chains = nc, n.thin = nt, n.iter = ni, n.burnin = nb, 
                       DIC = T)
       }
     )
   )
-  
-  
-  stopCluster(cl)
-  
-  save(samples_OCCcoral_PdepthObsIDRndm_gen, file="samples_OCCcoral_PdepthObsIDRndm_gen.RData")
-  
-  ###### modelo com 
-  # efeito de coral no psi
-  # efeito da depth no psi
-  # efeito do obs no P
-  # random-intercept P
-  
-  ## Parameters to monitor
-  params <- c(
-    ### detection parameters
-    "alpha.obs", "alpha.depth",
-    "intercept.p.obs", 
-    "intercept.p",
-    "sd.p","alpha0",
+)
+
+stopCluster(cl)
+
+save(samples_OCCcoral_PdepthObsID_gen, file=here("output","samples_OCCcoral_PdepthObsID_gen.RData"))
+
+### EXAMINE RESULTS
+## chi-square statistics
+Chi2ratioClosed <- lapply (samples_genero, function (i)
+  lapply (i, function (k)
+    k$sims.list$Chi2Closed/k$sims.list$Chi2repClosed))
+
+## bayesian p-value
+
+bvclosed <- lapply (samples_genero, function (i)
+  (unlist(lapply (i, function (k)
     
-    ### occupancy parameters
-    "beta0","intercept.depth", "intercept.psi",
-    "beta1", "psi",
+    sum (k$sims.list$Chi2repClosed > k$sims.list$Chi2Closed)/
+      length(k$sims.list$Chi2repClosed)
+  ))))
+
+plot(samples_genero[[1]][[13]]$sims.list$Chi2Closed, 
+     samples_genero[[1]][[13]]$sims.list$Chi2repClosed)
+abline(1,1)
+
+
+###### modelo com 
+# efeito de coral no psi
+# efeito do obs no P
+# profundidade no P
+# random-intercept P
+
+## Parameters to monitor
+params <- c(
+  ### detection parameters
+  "alpha.obs", "alpha.depth",
+  "intercept.p.obs", "intercept.depth",
+  "intercept.p",
+  "sd.p","alpha0",
+  
+  ### occupancy parameters
+  "beta0","intercept.psi",
+  "beta1", "psi",
+  
+  ## goodness of fit parameters
+  "FTratioClosed",
+  "Chi2Closed",
+  "Chi2repClosed",
+  
+  ## derived par
+  "mutot",
+  "n.occ",
+  "mean.p"
+)
+
+### aplicar o modelo a cada especie e especie de coral
+
+require(parallel)
+
+cl <- makeCluster(2) ## number of cores = generally ncores -1
+
+# exportar pacote para os cores
+clusterEvalQ(cl, library(jagsUI))
+
+
+# export your data and function
+clusterExport(cl, c("arranjo_deteccoes_sitio_transeccao",
+                    "df_data", 
+                    "cob_coral_genero",
+                    "cob_coral",
+                    "ni","nt","nb","nc","na",
+                    "params"))
+
+### run in parallel processing
+## aplicar o modelo para todas as especies de coral e de peixes.
+samples_OCCcoral_PdepthObsIDRndm_gen <- parLapply (cl, cob_coral_genero, function (k)
+  
+  lapply (seq (1,length (df_data)), function (i) {
     
-    ## goodness of fit parameters
-    "FTratioClosed",
-    "Chi2Closed",
-    "Chi2repClosed",
+    ## data
+    jags.data<- list(y= df_data [[i]][,"y"], 
+                     nsite = max (df_data [[i]][,"M"]),
+                     prof= df_data [[i]]$prof,
+                     nobs = nrow (df_data [[i]]),
+                     obs = df_data [[i]]$ID,
+                     maxID = max(df_data [[i]]$ID),
+                     nocca = max(df_data [[i]]$J),
+                     site = df_data [[i]]$M,
+                     occa = df_data [[i]]$J,
+                     coral= k[,1],
+                     e= 0.0001)
     
-    ## derived par
-    "mutot",
-    "n.occ",
-    "mean.p"
-  )
-  
-  ### aplicar o modelo a cada especie e especie de coral
-  
-  require(parallel)
-  
-  cl <- makeCluster(2) ## number of cores = generally ncores -1
-  
-  # exportar pacote para os cores
-  clusterEvalQ(cl, library(jagsUI))
-  
-  # export your data and function
-  clusterExport(cl, c("arranjo_deteccoes_sitio_transeccao",
-                      "df_data", 
-                      "cob_coral_genero",
-                      "cob_coral",
-                      "prof",
-                      "ni","nt","nb","nc","na",
-                      "params"))
-  
-  ### run in parallel processing
-  ## aplicar o modelo para todas as especies de coral e de peixes.
-  samples_OCCcoralDepth_PObsIDRndm_gen <- parLapply (cl, cob_coral_genero, function (k)
     
-    lapply (seq (1,length (df_data)), function (i) {
-      
-      ## data
-      jags.data<- list(y= df_data [[i]][,"y"], 
-                       nsite = max (df_data [[i]][,"M"]),
-                       prof= prof,
-                       nobs = nrow (df_data [[i]]),
-                       obs = df_data [[i]]$ID,
-                       maxID = max(df_data [[i]]$ID),
-                       nocca = max(df_data [[i]]$J),
-                       site = df_data [[i]]$M,
-                       occa = df_data [[i]]$J,
-                       coral= k[,1],
-                       e= 0.0001)
-      
-      
-      ## inits
-      zst <- apply(arranjo_deteccoes_sitio_transeccao [,,i], 1, max, na.rm = TRUE)	# Observed occurrence as inits for z
-      zst[zst == '-Inf'] <- 1 # max of c(NA,NA,NA) with na.rm = TRUE returns -Inf, change to 1
-      inits <- function(){list(z = zst)}
-      
-      # run jags
-      
-      samples <- jags(data = jags.data, params, model = "StaticModelDepthOcc_IDobsRdmP.txt", inits = inits,
-                      n.chains = nc, n.thin = nt, n.iter = ni, n.burnin = nb, 
-                      DIC = T)
-      }
-    )
-  )
-  
-  
-  stopCluster(cl)
-  
-  save(samples_OCCcoralDepth_PObsIDRndm_gen, file="samples_OCCcoralDepth_PObsIDRndm_gen.RData")
-  
-  
-  ### EXAMINE RESULTS
-  ## chi-square statistics
-  Chi2ratioClosed <- lapply (samples_OCCcoralDepth_PObsIDRndm, function (i)
-    lapply (i, function (k)
-      k$sims.list$Chi2Closed/k$sims.list$Chi2repClosed))
-  
-  ## bayesian p-value
-  
-  bvclosed <- lapply (samples_OCCcoralDepth_PObsIDRndm, function (i)
-    (unlist(lapply (i, function (k)
-      
-      sum (k$sims.list$Chi2repClosed > k$sims.list$Chi2Closed)/
-        length(k$sims.list$Chi2repClosed)
-    ))))
-  
-  plot(samples_OCCcoralDepth_PObsIDRndm[[1]][[13]]$sims.list$Chi2Closed, 
-       samples_OCCcoralDepth_PObsIDRndm[[1]][[13]]$sims.list$Chi2repClosed)
-  abline(1,1)
-  
-  
-  ###### modelo com 
-  # efeito de coral no psi
-  # efeito do obs no P
-  # random-intercept P
-  # sem profundidade
-  
-  ## Parameters to monitor
-  params <- c(
-    ### detection parameters
-    "alpha.obs", 
-    "intercept.p.obs", 
-    "intercept.p",
-    "sd.p","alpha0",
+    ## inits
+    zst <- apply(arranjo_deteccoes_sitio_transeccao [,,i], 1, max, na.rm = TRUE)	# Observed occurrence as inits for z
+    zst[zst == '-Inf'] <- 1 # max of c(NA,NA,NA) with na.rm = TRUE returns -Inf, change to 1
+    inits <- function(){list(z = zst)}
     
-    ### occupancy parameters
-    "beta0","intercept.psi",
-    "beta1", "psi",
+    # run jags
     
-    ## goodness of fit parameters
-    "FTratioClosed",
-    "Chi2Closed",
-    "Chi2repClosed",
-    
-    ## derived par
-    "mutot",
-    "n.occ",
-    "mean.p"
-  )
-  
-  ### aplicar o modelo a cada especie e especie de coral
-  
-  require(parallel)
-  
-  cl <- makeCluster(2) ## number of cores = generally ncores -1
-  
-  # exportar pacote para os cores
-  clusterEvalQ(cl, library(jagsUI))
-  
-  # export your data and function
-  clusterExport(cl, c("arranjo_deteccoes_sitio_transeccao",
-                      "df_data", 
-                      "cob_coral_genero",
-                      "cob_coral",
-                      #"prof",
-                      "ni","nt","nb","nc","na",
-                      "params"))
-  
-  ### run in parallel processing
-  ## aplicar o modelo para todas as especies de coral e de peixes.
-  StaticModelOccCoral_IDobsRdmP_gen <- parLapply (cl, cob_coral_genero, function (k)
-    
-    lapply (seq (1,length (df_data)), function (i) {
-      
-      ## data
-      jags.data<- list(y= df_data [[i]][,"y"], 
-                       nsite = max (df_data [[i]][,"M"]),
-                       #prof= prof,
-                       nobs = nrow (df_data [[i]]),
-                       obs = df_data [[i]]$ID,
-                       maxID = max(df_data [[i]]$ID),
-                       nocca = max(df_data [[i]]$J),
-                       site = df_data [[i]]$M,
-                       occa = df_data [[i]]$J,
-                       coral= k[,1],
-                       e= 0.0001)
-      
-      
-      ## inits
-      zst <- apply(arranjo_deteccoes_sitio_transeccao [,,i], 1, max, na.rm = TRUE)	# Observed occurrence as inits for z
-      zst[zst == '-Inf'] <- 1 # max of c(NA,NA,NA) with na.rm = TRUE returns -Inf, change to 1
-      inits <- function(){list(z = zst)}
-      
-      # run jags
-      
-      samples <- jags(data = jags.data, params, model = "StaticModelOcc_IDobsRdmP.txt", inits = inits,
-                      n.chains = nc, n.thin = nt, n.iter = ni, n.burnin = nb, 
-                      DIC = T)
+    samples <- jags(data = jags.data, params, model = "StaticModel_ID_obsRndmEff.txt", inits = inits,
+                    n.chains = nc, n.thin = nt, n.iter = ni, n.burnin = nb, 
+                    DIC = T)
     }
-    )
   )
+)
+
+
+stopCluster(cl)
+
+save(samples_OCCcoral_PdepthObsIDRndm_gen, file="samples_OCCcoral_PdepthObsIDRndm_gen.RData")
+
+###### modelo com 
+# efeito de coral no psi
+# efeito da depth no psi
+# efeito do obs no P
+# random-intercept P
+
+## Parameters to monitor
+params <- c(
+  ### detection parameters
+  "alpha.obs", "alpha.depth",
+  "intercept.p.obs", 
+  "intercept.p",
+  "sd.p","alpha0",
   
+  ### occupancy parameters
+  "beta0","intercept.depth", "intercept.psi",
+  "beta1", "psi",
   
-  stopCluster(cl)
+  ## goodness of fit parameters
+  "FTratioClosed",
+  "Chi2Closed",
+  "Chi2repClosed",
   
-  save(StaticModelOccCoral_IDobsRdmP_gen, file="StaticModelOccCoral_IDobsRdmP_gen.RData")
+  ## derived par
+  "mutot",
+  "n.occ",
+  "mean.p"
+)
+
+### aplicar o modelo a cada especie e especie de coral
+
+require(parallel)
+
+cl <- makeCluster(2) ## number of cores = generally ncores -1
+
+# exportar pacote para os cores
+clusterEvalQ(cl, library(jagsUI))
+
+# export your data and function
+clusterExport(cl, c("arranjo_deteccoes_sitio_transeccao",
+                    "df_data", 
+                    "cob_coral_genero",
+                    "cob_coral",
+                    "prof",
+                    "ni","nt","nb","nc","na",
+                    "params"))
+
+### run in parallel processing
+## aplicar o modelo para todas as especies de coral e de peixes.
+samples_OCCcoralDepth_PObsIDRndm_gen <- parLapply (cl, cob_coral_genero, function (k)
   
+  lapply (seq (1,length (df_data)), function (i) {
+    
+    ## data
+    jags.data<- list(y= df_data [[i]][,"y"], 
+                     nsite = max (df_data [[i]][,"M"]),
+                     prof= prof,
+                     nobs = nrow (df_data [[i]]),
+                     obs = df_data [[i]]$ID,
+                     maxID = max(df_data [[i]]$ID),
+                     nocca = max(df_data [[i]]$J),
+                     site = df_data [[i]]$M,
+                     occa = df_data [[i]]$J,
+                     coral= k[,1],
+                     e= 0.0001)
+    
+    
+    ## inits
+    zst <- apply(arranjo_deteccoes_sitio_transeccao [,,i], 1, max, na.rm = TRUE)	# Observed occurrence as inits for z
+    zst[zst == '-Inf'] <- 1 # max of c(NA,NA,NA) with na.rm = TRUE returns -Inf, change to 1
+    inits <- function(){list(z = zst)}
+    
+    # run jags
+    
+    samples <- jags(data = jags.data, params, model = "StaticModelDepthOcc_IDobsRdmP.txt", inits = inits,
+                    n.chains = nc, n.thin = nt, n.iter = ni, n.burnin = nb, 
+                    DIC = T)
+    }
+  )
+)
+
+
+stopCluster(cl)
+
+save(samples_OCCcoralDepth_PObsIDRndm_gen, file="samples_OCCcoralDepth_PObsIDRndm_gen.RData")
+
+
+### EXAMINE RESULTS
+## chi-square statistics
+Chi2ratioClosed <- lapply (samples_OCCcoralDepth_PObsIDRndm, function (i)
+  lapply (i, function (k)
+    k$sims.list$Chi2Closed/k$sims.list$Chi2repClosed))
+
+## bayesian p-value
+
+bvclosed <- lapply (samples_OCCcoralDepth_PObsIDRndm, function (i)
+  (unlist(lapply (i, function (k)
+    
+    sum (k$sims.list$Chi2repClosed > k$sims.list$Chi2Closed)/
+      length(k$sims.list$Chi2repClosed)
+  ))))
+
+plot(samples_OCCcoralDepth_PObsIDRndm[[1]][[13]]$sims.list$Chi2Closed, 
+     samples_OCCcoralDepth_PObsIDRndm[[1]][[13]]$sims.list$Chi2repClosed)
+abline(1,1)
+
+
+###### modelo com 
+# efeito de coral no psi
+# efeito do obs no P
+# random-intercept P
+# sem profundidade
+
+## Parameters to monitor
+params <- c(
+  ### detection parameters
+  "alpha.obs", 
+  "intercept.p.obs", 
+  "intercept.p",
+  "sd.p","alpha0",
   
+  ### occupancy parameters
+  "beta0","intercept.psi",
+  "beta1", "psi",
   
+  ## goodness of fit parameters
+  "FTratioClosed",
+  "Chi2Closed",
+  "Chi2repClosed",
+  
+  ## derived par
+  "mutot",
+  "n.occ",
+  "mean.p"
+)
+
+### aplicar o modelo a cada especie e especie de coral
+
+require(parallel)
+
+cl <- makeCluster(2) ## number of cores = generally ncores -1
+
+# exportar pacote para os cores
+clusterEvalQ(cl, library(jagsUI))
+
+# export your data and function
+clusterExport(cl, c("arranjo_deteccoes_sitio_transeccao",
+                    "df_data", 
+                    "cob_coral_genero",
+                    "cob_coral",
+                    #"prof",
+                    "ni","nt","nb","nc","na",
+                    "params"))
+
+### run in parallel processing
+## aplicar o modelo para todas as especies de coral e de peixes.
+StaticModelOccCoral_IDobsRdmP_gen <- parLapply (cl, cob_coral_genero, function (k)
+  
+  lapply (seq (1,length (df_data)), function (i) {
+    
+    ## data
+    jags.data<- list(y= df_data [[i]][,"y"], 
+                     nsite = max (df_data [[i]][,"M"]),
+                     #prof= prof,
+                     nobs = nrow (df_data [[i]]),
+                     obs = df_data [[i]]$ID,
+                     maxID = max(df_data [[i]]$ID),
+                     nocca = max(df_data [[i]]$J),
+                     site = df_data [[i]]$M,
+                     occa = df_data [[i]]$J,
+                     coral= k[,1],
+                     e= 0.0001)
+    
+    
+    ## inits
+    zst <- apply(arranjo_deteccoes_sitio_transeccao [,,i], 1, max, na.rm = TRUE)	# Observed occurrence as inits for z
+    zst[zst == '-Inf'] <- 1 # max of c(NA,NA,NA) with na.rm = TRUE returns -Inf, change to 1
+    inits <- function(){list(z = zst)}
+    
+    # run jags
+    
+    samples <- jags(data = jags.data, params, model = "StaticModelOcc_IDobsRdmP.txt", inits = inits,
+                    n.chains = nc, n.thin = nt, n.iter = ni, n.burnin = nb, 
+                    DIC = T)
+  }
+  )
+)
+
+
+stopCluster(cl)
+
+save(StaticModelOccCoral_IDobsRdmP_gen, file="StaticModelOccCoral_IDobsRdmP_gen.RData")
+
+
+
