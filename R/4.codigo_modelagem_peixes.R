@@ -745,21 +745,22 @@ save(samples_OCCcoral_PdepthObsID_gen, file=here("output","samples_OCCcoral_Pdep
 
 ### EXAMINE RESULTS
 ## chi-square statistics
-Chi2ratioClosed <- lapply (samples_genero, function (i)
+Chi2ratioClosed <- lapply (samples_OCCcoral_PdepthObsID_gen, function (i)
   lapply (i, function (k)
     k$sims.list$Chi2Closed/k$sims.list$Chi2repClosed))
 
 ## bayesian p-value
 
-bvclosed <- lapply (samples_genero, function (i)
-  (unlist(lapply (i, function (k)
+bvclosed <- lapply (samples_OCCcoral_PdepthObsID_gen, function (i)
+  lapply (i, function (j)
+  (unlist(lapply (j, function (k)
     
     sum (k$sims.list$Chi2repClosed > k$sims.list$Chi2Closed)/
       length(k$sims.list$Chi2repClosed)
-  ))))
+  )))))
 
-plot(samples_genero[[1]][[13]]$sims.list$Chi2Closed, 
-     samples_genero[[1]][[13]]$sims.list$Chi2repClosed)
+plot(samples_OCCcoral_PdepthObsID_gen[[2]][[1]][[10]]$sims.list$Chi2Closed, 
+     samples_OCCcoral_PdepthObsID_gen[[2]][[1]][[10]]$sims.list$Chi2repClosed)
 abline(1,1)
 
 
