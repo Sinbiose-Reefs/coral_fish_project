@@ -16,9 +16,15 @@
 
 ### PARTE SUPERIOR
 
+## load packages
+
+source("R/packages_model_fishes.R")
+
 #######################################
 ## modelo com efeito de observador (MODELO 1)
 ## definir o modelo, em linguagem  JAGS
+
+
 sink(here ("R","StaticModel_ID_obs.txt"))
 cat("
     
@@ -160,7 +166,7 @@ sink()
 ### e
 ##  com efeito de observador
 
-sink("StaticModel_ID_obsRndmEff.txt")
+sink(here("output","StaticModel_ID_obsRndmEff.txt"))
 cat("
     
     model {
@@ -317,7 +323,7 @@ sink()
 ## random-intercept P
 ## coral e profundidade na ocupação
 
-sink("StaticModelDepthOcc_IDobsRdmP.txt")
+sink(here("output","StaticModelDepthOcc_IDobsRdmP.txt"))
 cat("
     
     model {
@@ -472,7 +478,7 @@ sink()
 ## coral na ocupação
 ## nao inclui profundidade em nenhum dos modelos
 
-sink("StaticModelOcc_IDobsRdmP.txt")
+sink(here("output","StaticModelOcc_IDobsRdmP.txt"))
 cat("
     
     model {
@@ -627,23 +633,11 @@ sink()
 ## coral_cob = cobertura de especies de coral - ver names (coral_cob)
 ## coral_cob_genero = cobertura de generos de coral - ver names(coral_cob_genero)
 
-
 ## fish data
 load (here("output","Data_fish_detection.RData"))
 
 ## coral data
 load (here("output","coral_occupancy_data.RData"))
-
-## load packages
-
-source("R/packages_model_fishes.R")
-
-# # # # # # # # # # # # # # # # # # # # 
-# efeito da identidade do observador
-# transformar os dados em long format
-# remover os NAs
-# cbind profundidade
-
 
 ################
 # MCMC settings
@@ -801,54 +795,63 @@ cl <- makeCluster(2) ## number of cores = generally ncores -1
 
 # exportar pacote para os cores
 clusterEvalQ(cl, library(jagsUI))
-
+clusterEvalQ(cl, library(vegan))
+clusterEvalQ(cl, library(here))
 
 # export your data and function
-clusterExport(cl, c("arranjo_deteccoes_sitio_transeccao",
-                    "df_data", 
-                    "cob_coral_genero",
-                    "cob_coral",
+clusterExport(cl, c("df_fish_data", 
+                    "covariates_site",
+                    "list_coral_data",
                     "ni","nt","nb","nc","na",
                     "params"))
 
 ### run in parallel processing
 ## aplicar o modelo para todas as especies de coral e de peixes.
-samples_OCCcoral_PdepthObsIDRndm_gen <- parLapply (cl, cob_coral_genero, function (k)
+samples_OCCcoral_PdepthObsIDRndm_gen <- parLapply (cl, list_coral_data, function (coral)
   
-  lapply (seq (1,length (df_data)), function (i) {
+  lapply (seq(1,ncol(coral)), function (k)
     
+    lapply (seq (1,length (df_fish_data)), function (i) {
+      
     ## data
-    jags.data<- list(y= df_data [[i]][,"y"], 
-                     nsite = max (df_data [[i]][,"M"]),
-                     prof= df_data [[i]]$prof,
-                     nobs = nrow (df_data [[i]]),
-                     obs = df_data [[i]]$ID,
-                     maxID = max(df_data [[i]]$ID),
-                     nocca = max(df_data [[i]]$J),
-                     site = df_data [[i]]$M,
-                     occa = df_data [[i]]$J,
-                     coral= k[,1],
-                     e= 0.0001)
+    jags.data<- list(y= df_fish_data [[i]][,"y"], 
+                    nsite = max (df_fish_data [[i]][,"M"]),
+                    prof= df_fish_data [[i]]$prof,
+                    nobs = nrow (df_fish_data [[i]]),
+                    nreg = 2,
+                    reg = covariates_site$NE_region+1,
+                    obs = df_fish_data [[i]]$ID,
+                    maxID = max(df_fish_data [[i]]$ID),
+                    nocca = max(df_fish_data[[i]]$J),
+                    site = df_fish_data [[i]]$M,
+                    occa = df_fish_data [[i]]$J,
+                    coral= decostand (coral[,k],"standardize")[,1],
+                    e= 0.0001)
     
     
     ## inits
-    zst <- apply(arranjo_deteccoes_sitio_transeccao [,,i], 1, max, na.rm = TRUE)	# Observed occurrence as inits for z
+    ## inits
+    zst <- aggregate (df_fish_data[[i]][,"y"] , 
+                      list (df_fish_data[[i]][,"M"]),
+                      FUN=max)$x
+    
     zst[zst == '-Inf'] <- 1 # max of c(NA,NA,NA) with na.rm = TRUE returns -Inf, change to 1
     inits <- function(){list(z = zst)}
     
     # run jags
     
-    samples <- jags(data = jags.data, params, model = "StaticModel_ID_obsRndmEff.txt", inits = inits,
+    samples <- jags(data = jags.data, params, model = here("output","StaticModel_ID_obsRndmEff.txt"), inits = inits,
                     n.chains = nc, n.thin = nt, n.iter = ni, n.burnin = nb, 
                     DIC = T)
     }
   )
+ )
 )
 
 
 stopCluster(cl)
 
-save(samples_OCCcoral_PdepthObsIDRndm_gen, file="samples_OCCcoral_PdepthObsIDRndm_gen.RData")
+save(samples_OCCcoral_PdepthObsIDRndm_gen, file=here("output","samples_OCCcoral_PdepthObsIDRndm_gen.RData"))
 
 ###### modelo com 
 # efeito de coral no psi
@@ -887,54 +890,60 @@ cl <- makeCluster(2) ## number of cores = generally ncores -1
 
 # exportar pacote para os cores
 clusterEvalQ(cl, library(jagsUI))
+clusterEvalQ(cl, library(vegan))
+clusterEvalQ(cl, library(here))
 
 # export your data and function
-clusterExport(cl, c("arranjo_deteccoes_sitio_transeccao",
-                    "df_data", 
-                    "cob_coral_genero",
-                    "cob_coral",
-                    "prof",
+clusterExport(cl, c("df_fish_data", 
+                    "covariates_site",
+                    "list_coral_data",
                     "ni","nt","nb","nc","na",
                     "params"))
 
 ### run in parallel processing
 ## aplicar o modelo para todas as especies de coral e de peixes.
-samples_OCCcoralDepth_PObsIDRndm_gen <- parLapply (cl, cob_coral_genero, function (k)
+samples_OCCcoralDepth_PObsIDRndm_gen <- parLapply (cl, list_coral_data, function (coral)
   
-  lapply (seq (1,length (df_data)), function (i) {
+  lapply (seq(1,ncol(coral)), function (k)
     
-    ## data
-    jags.data<- list(y= df_data [[i]][,"y"], 
-                     nsite = max (df_data [[i]][,"M"]),
-                     prof= prof,
-                     nobs = nrow (df_data [[i]]),
-                     obs = df_data [[i]]$ID,
-                     maxID = max(df_data [[i]]$ID),
-                     nocca = max(df_data [[i]]$J),
-                     site = df_data [[i]]$M,
-                     occa = df_data [[i]]$J,
-                     coral= k[,1],
-                     e= 0.0001)
-    
+    lapply (seq (1,length (df_fish_data)), function (i) {
+      
+      ## data
+      jags.data<- list(y= df_fish_data [[i]][,"y"], 
+                      nsite = max (df_fish_data [[i]][,"M"]),
+                      prof= df_fish_data [[i]]$prof,
+                      nobs = nrow (df_fish_data [[i]]),
+                      nreg = 2,
+                      reg = covariates_site$NE_region+1,
+                      obs = df_fish_data [[i]]$ID,
+                      maxID = max(df_fish_data [[i]]$ID),
+                      nocca = max(df_fish_data[[i]]$J),
+                      site = df_fish_data [[i]]$M,
+                      occa = df_fish_data [[i]]$J,
+                      coral= decostand (coral[,k],"standardize")[,1],
+                      e= 0.0001)
     
     ## inits
-    zst <- apply(arranjo_deteccoes_sitio_transeccao [,,i], 1, max, na.rm = TRUE)	# Observed occurrence as inits for z
-    zst[zst == '-Inf'] <- 1 # max of c(NA,NA,NA) with na.rm = TRUE returns -Inf, change to 1
-    inits <- function(){list(z = zst)}
+      zst <- aggregate (df_fish_data[[i]][,"y"] , 
+                        list (df_fish_data[[i]][,"M"]),
+                        FUN=max)$x
+      
+      zst[zst == '-Inf'] <- 1 # max of c(NA,NA,NA) with na.rm = TRUE returns -Inf, change to 1
+      inits <- function(){list(z = zst)}
     
     # run jags
     
-    samples <- jags(data = jags.data, params, model = "StaticModelDepthOcc_IDobsRdmP.txt", inits = inits,
+    samples <- jags(data = jags.data, params, model = here("output","StaticModelDepthOcc_IDobsRdmP.txt"), inits = inits,
                     n.chains = nc, n.thin = nt, n.iter = ni, n.burnin = nb, 
                     DIC = T)
     }
   )
+ )
 )
-
 
 stopCluster(cl)
 
-save(samples_OCCcoralDepth_PObsIDRndm_gen, file="samples_OCCcoralDepth_PObsIDRndm_gen.RData")
+save(samples_OCCcoralDepth_PObsIDRndm_gen, file=here("output","samples_OCCcoralDepth_PObsIDRndm_gen.RData"))
 
 
 ### EXAMINE RESULTS
@@ -992,56 +1001,64 @@ require(parallel)
 
 cl <- makeCluster(2) ## number of cores = generally ncores -1
 
+
 # exportar pacote para os cores
 clusterEvalQ(cl, library(jagsUI))
+clusterEvalQ(cl, library(vegan))
+clusterEvalQ(cl, library(here))
 
 # export your data and function
-clusterExport(cl, c("arranjo_deteccoes_sitio_transeccao",
-                    "df_data", 
-                    "cob_coral_genero",
-                    "cob_coral",
-                    #"prof",
+clusterExport(cl, c("df_fish_data", 
+                    "covariates_site",
+                    "list_coral_data",
                     "ni","nt","nb","nc","na",
                     "params"))
 
 ### run in parallel processing
 ## aplicar o modelo para todas as especies de coral e de peixes.
-StaticModelOccCoral_IDobsRdmP_gen <- parLapply (cl, cob_coral_genero, function (k)
+StaticModelOccCoral_IDobsRdmP_gen <- parLapply (cl, list_coral_data, function (coral)
   
-  lapply (seq (1,length (df_data)), function (i) {
+  lapply (seq(1,ncol(coral)), function (k)
     
-    ## data
-    jags.data<- list(y= df_data [[i]][,"y"], 
-                     nsite = max (df_data [[i]][,"M"]),
-                     #prof= prof,
-                     nobs = nrow (df_data [[i]]),
-                     obs = df_data [[i]]$ID,
-                     maxID = max(df_data [[i]]$ID),
-                     nocca = max(df_data [[i]]$J),
-                     site = df_data [[i]]$M,
-                     occa = df_data [[i]]$J,
-                     coral= k[,1],
-                     e= 0.0001)
-    
-    
+    lapply (seq (1,length (df_fish_data)), function (i) {
+      
+      ## data
+      jags.data<- list(y= df_fish_data [[i]][,"y"], 
+                      nsite = max (df_fish_data [[i]][,"M"]),
+                      prof= df_fish_data [[i]]$prof,
+                      nobs = nrow (df_fish_data [[i]]),
+                      nreg = 2,
+                      reg = covariates_site$NE_region+1,
+                      obs = df_fish_data [[i]]$ID,
+                      maxID = max(df_fish_data [[i]]$ID),
+                      nocca = max(df_fish_data[[i]]$J),
+                      site = df_fish_data [[i]]$M,
+                      occa = df_fish_data [[i]]$J,
+                      coral= decostand (coral[,k],"standardize")[,1],
+                      e= 0.0001)
+      
     ## inits
-    zst <- apply(arranjo_deteccoes_sitio_transeccao [,,i], 1, max, na.rm = TRUE)	# Observed occurrence as inits for z
-    zst[zst == '-Inf'] <- 1 # max of c(NA,NA,NA) with na.rm = TRUE returns -Inf, change to 1
+      zst <- aggregate (df_fish_data[[i]][,"y"] , 
+                        list (df_fish_data[[i]][,"M"]),
+                        FUN=max)$x
+      
+      zst[zst == '-Inf'] <- 1 # max of c(NA,NA,NA) with na.rm = TRUE returns -Inf, change to 1
     inits <- function(){list(z = zst)}
     
     # run jags
     
-    samples <- jags(data = jags.data, params, model = "StaticModelOcc_IDobsRdmP.txt", inits = inits,
+    samples <- jags(data = jags.data, params, model = here("output","StaticModelOcc_IDobsRdmP.txt"), inits = inits,
                     n.chains = nc, n.thin = nt, n.iter = ni, n.burnin = nb, 
                     DIC = T)
   }
   )
+ )
 )
 
 
 stopCluster(cl)
 
-save(StaticModelOccCoral_IDobsRdmP_gen, file="StaticModelOccCoral_IDobsRdmP_gen.RData")
+save(StaticModelOccCoral_IDobsRdmP_gen, file=here("output","StaticModelOccCoral_IDobsRdmP_gen.RData"))
 
 
 
