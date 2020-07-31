@@ -639,6 +639,25 @@ load (here("output","Data_fish_detection.RData"))
 ## coral data
 load (here("output","coral_occupancy_data.RData"))
 
+## descontar 25% e 50% da cobertura observada e da probabilidade de ocupacao dos corais em cada sitio 
+
+perc25less <- lapply (list_coral_data, function (i)
+                         i * 0.75
+                      )
+
+perc50less <- lapply (list_coral_data, function (i)
+  i * 0.50
+)
+
+## colar na lista com as tabelas dos dados originais
+list_coral_data <-  c (list_coral_data ,    
+                       perc25less,
+                       perc50less)
+## ajustar os nomes
+names (list_coral_data) <- c("cob_original", "ocupacao_original",
+                             "cob_desc25", "ocupacao_desc25",
+                             "cob_desc50", "ocupacao_desc50")
+
 ################
 # MCMC settings
 ni <- 50000
