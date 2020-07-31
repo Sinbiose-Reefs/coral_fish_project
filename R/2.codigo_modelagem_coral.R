@@ -1,4 +1,4 @@
-
+﻿
 ## Implementação do modelo de ocupação de sítios
 ## aplicado a espécies de corais
 
@@ -17,7 +17,7 @@
 ### PARTE SUPERIOR
 
 # BUGS model
-sink(here ("output","StaticCARModel_coral.txt"))
+sink(here ("bugs","StaticCARModel_coral.txt"))
 
 cat("
 
@@ -174,7 +174,7 @@ samples_coral <- parLapply (cl, neigh_winnb, function (k)  ## for each distance 
   # run winbugs
 
   samples <- bugs(data = win.data, parameters.to.save = params, 
-                model.file = here ("output","StaticCARModel_coral.txt"), 
+                model.file = here ("bugs","StaticCARModel_coral.txt"), 
                 inits = inits,
                 n.chains = nc, 
                 n.thin = nt, 
@@ -360,7 +360,7 @@ correlations_uncertainty <- lapply (seq(1,6), function (k) ## para cada sp. de c
   )
 
 
-pdf(here ("output", "corr_cover_z.pdf"),onefile = T)
+pdf(here ("output","figures_coral", "corr_cover_z.pdf"),onefile = T)
 
 par(mfrow=c(2,3))
 
@@ -424,7 +424,7 @@ correlations_uncertainty <- lapply (seq(1,6), function (k) ## para cada sp. de c
 
 
 
-pdf(here ("output", "corr_detection_z.pdf"),onefile = T)
+pdf(here ("output","figures_coral", "corr_detection_z.pdf"),onefile = T)
 
 par(mfrow=c(2,3))
 
@@ -469,7 +469,7 @@ Rhat_eval <- lapply (samples_coral, function (k)
   
 )))
 
-pdf (here ("output", "RHat_eval_coral_models.pdf"),onefile = T,width=4,height=4)
+pdf (here ("output", "figures_coral","RHat_eval_coral_models.pdf"),onefile = T,width=4,height=4)
 par(mfrow=c(1,1))
 
 plot(NA,xlim=c(3,25),ylim=c(1,3.5),xaxt="n",
