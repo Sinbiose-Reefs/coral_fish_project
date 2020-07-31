@@ -1,0 +1,146 @@
+
+    
+    model {
+    
+    # priors
+    
+    ## priors for P
+    ## observed ID effect
+    for (o in 1:maxID){ # Implicitly define alpha of p as a vector
+       alpha.obs[o] ~ dunif(0,1)
+       intercept.p.obs[o] <- logit (alpha.obs[o])
+    }
+    
+    ## depth effect
+    for (i in 1:2){ # Implicitly define alpha of p as a vector
+       alpha.depth[i] ~ dunif(0,1)
+       intercept.depth[i] <- logit (alpha.depth[i])
+    }
+    
+    ## occupancy priors
+    beta0 ~ dunif (0,1)
+    intercept.psi <- logit(beta0)
+    
+    ## random coefficient
+	  for (j in 1:nreg){
+      beta1[j] ~ dnorm (0,0.001)	
+    }
+
+    ## probabilidade de deteccao variando por transeccao
+    # com fator aleatorio
+    alpha0 ~ dunif (0,1)
+    lalpha0 <- logit (alpha0)
+    sd.p ~ dunif (0,10) ## sd of p on logit scale
+    tau.p <- pow (sd.p,2)## p precision on logit scale
+    
+    # one estimate per occasion
+    for (j in 1:nocca){
+       logit (intercept.p [j]) <- lp [j]
+       lp[j] ~ dnorm (lalpha0,tau.p)
+    }
+    
+    # Ecological submodel: Define state conditional on parameters
+    for(i in 1:nsite){    ## occupancy model
+    
+       z [i] ~ dbern(psi[i])
+    
+       ## This keeps the program on the track
+       psi[i]<-max(0.00001,min(0.99999, psi0[i]))
+       w[i] ~ dbern(psi[i])
+    
+       logit(psi0 [i]) <- intercept.psi + beta1 [reg[i]] * coral [i]
+    
+    
+    }
+    
+    # # # # 
+    ####### observation model
+    
+    for (k in 1:nobs) { 		## loop over replicated surveys
+    
+       y [k] ~ dbern(muY[site[k], occa[k]])
+       muY [site[k], occa[k]] <- z[site[k]] * p[k]
+       logit (p [k]) <-  intercept.p.obs [obs[k]] + 
+                         intercept.depth[prof[k]] + 
+                         intercept.p [occa[k]]      
+    
+    }
+    
+    ##############################################################
+    #                      Goodness of fit
+    ##############################################################
+    #       (based on posterior predictive distributions)       #
+    #############################################################
+    # Draw a replicate data set under the fitted model
+    for (k in 1:nobs){
+       yrep[k] ~ dbern(muYrep[site [k], occa[k]])
+       muYrep [site [k], occa[k]] <- z[site [k]]*p[k]
+    }
+    
+    # Compute detection frequencies for observed and replicated data
+    ## the first loop is used to extract data for each site    
+    ## The outside function sum is used to aggregate data
+    
+    for (i in 1:nsite) {
+       for (k in 1:nobs) {
+    
+          y.prov [i,k] <- ifelse (site[k] == i, y [k],0)## provisorious data
+          yrep.prov [i,k] <- ifelse (site[k] == i, yrep [k],0)## provisorious data
+       }
+    
+       detfreq [i] <- sum (y.prov[i,]) ## aggregate data
+       detfreqrep [i] <- sum (yrep.prov[i,]) ## aggregate data
+    
+    }
+    
+    # Expected detection frequencies under the model
+    for (k in 1:nobs){
+       tmp[k] <- z[site[k]] * p[k]
+    }
+    
+    ## the first loop is used to extract data for each site    
+    ## The outside function sum is used to aggregate data
+    
+    for (i in 1:nsite) {
+       for (k in 1:nobs) {
+    
+           E.prov [i,k] <- ifelse (site[k] == i, tmp [k],0) ## provisorious data
+    
+       }
+    
+       E [i] <- sum (E.prov[i,]) ## aggregate data
+    
+    } 
+    
+    ## discrepancy statistics
+    for (i in 1:nsite) {
+    
+       # Chi-square and Freeman-Tukey discrepancy measures
+       # ..... for actual data set
+       x2Closed[i] <- pow((detfreq[i] - E[i]),2) / (E[i]+e)
+       ftClosed[i] <- pow((sqrt(detfreq[i]) - sqrt(E[i])),2)
+       # ..... for replicated data set
+       x2repClosed[i] <- pow((detfreqrep[i] - E[i]),2) / (E[i]+e)
+       ftrepClosed[i] <- pow((sqrt(detfreqrep[i]) - sqrt(E[i])),2)
+    
+    }
+    
+    
+    # Add up Chi-square and FT discrepancies and compute fit stat ratio
+    # (closed part)
+    Chi2Closed <- sum(x2Closed[1:nsite])
+    FTClosed <- sum(ftClosed[1:nsite])
+    Chi2repClosed <- sum(x2repClosed[1:nsite])
+    FTrepClosed <- sum(ftrepClosed[1:nsite])
+    Chi2ratioClosed <- Chi2Closed / Chi2repClosed
+    FTratioClosed <- FTClosed / FTrepClosed
+    
+    ##
+    # Derived parameters: Sample and population occupancy, growth rate and turnover
+    mutot <- sum(psi[1:nsite]) ## expected number of occupied sites (infinite sample)
+    n.occ <- sum(z[1:nsite]) ## finite sample
+    mean.p <- mean (p)
+    
+    } # end of the model
+    
+    
