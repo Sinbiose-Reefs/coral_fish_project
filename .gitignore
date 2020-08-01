@@ -2,7 +2,8 @@
 .Rhistory
 .RData
 .Ruserdata
-output
+output/samples_coral_CARModel.RData
+output/figures_coral
 papers
 MS_presentation
 R/modelos_previos
