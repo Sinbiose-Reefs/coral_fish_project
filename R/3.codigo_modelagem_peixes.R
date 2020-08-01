@@ -689,7 +689,7 @@ params <- c(
 
 ### aplicar o modelo a cada especie de peixe e coral
 
-cl <- makeCluster(3) ## number of cores = generally ncores -1
+cl <- makeCluster(4) ## number of cores = generally ncores -1
 
 # exportar pacote para os cores
 clusterEvalQ(cl, library(jagsUI))
@@ -802,9 +802,7 @@ params <- c(
 
 ### aplicar o modelo a cada especie e especie de coral
 
-require(parallel)
-
-cl <- makeCluster(2) ## number of cores = generally ncores -1
+cl <- makeCluster(4) ## number of cores = generally ncores -1
 
 # exportar pacote para os cores
 clusterEvalQ(cl, library(jagsUI))
