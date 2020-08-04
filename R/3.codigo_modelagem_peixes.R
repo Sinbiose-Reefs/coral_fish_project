@@ -689,7 +689,7 @@ params <- c(
 
 ### aplicar o modelo a cada especie de peixe e coral
 
-cl <- makeCluster(4) ## number of cores = generally ncores -1
+cl <- makeCluster(4, setup_strategy="sequential") ## number of cores = generally ncores -1
 
 # exportar pacote para os cores
 clusterEvalQ(cl, library(jagsUI))
@@ -802,8 +802,8 @@ params <- c(
 
 ### aplicar o modelo a cada especie e especie de coral
 
-cl <- makeCluster(4) ## number of cores = generally ncores -1
-
+cl <- makeCluster(4, setup_strategy="sequential") ## number of cores = generally ncores -1
+# The help is here: r parallel::makeCluster() hangs on MAC
 # exportar pacote para os cores
 clusterEvalQ(cl, library(jagsUI))
 clusterEvalQ(cl, library(vegan))
@@ -895,9 +895,7 @@ params <- c(
 
 ### aplicar o modelo a cada especie e especie de coral
 
-require(parallel)
-
-cl <- makeCluster(2) ## number of cores = generally ncores -1
+cl <- makeCluster(4, setup_strategy="sequential") ## number of cores = generally ncores -1
 
 # exportar pacote para os cores
 clusterEvalQ(cl, library(jagsUI))
@@ -1008,10 +1006,7 @@ params <- c(
 
 ### aplicar o modelo a cada especie e especie de coral
 
-require(parallel)
-
-cl <- makeCluster(2) ## number of cores = generally ncores -1
-
+cl <- makeCluster(4, setup_strategy="sequential") ## number of cores = generally ncores -1
 
 # exportar pacote para os cores
 clusterEvalQ(cl, library(jagsUI))
