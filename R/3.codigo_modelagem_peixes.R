@@ -754,7 +754,8 @@ save(samples_OCCcoral_PdepthObsID, file=here("output","samples_OCCcoral_PdepthOb
 ## chi-square statistics
 Chi2ratioClosed <- lapply (samples_OCCcoral_PdepthObsID, function (i)
   lapply (i, function (k)
-    k$sims.list$Chi2Closed/k$sims.list$Chi2repClosed))
+    lapply(k, function (o)
+      o$sims.list$Chi2Closed/o$sims.list$Chi2repClosed)))
 
 ## bayesian p-value
 
@@ -879,7 +880,7 @@ params <- c(
   "sd.p","alpha0",
   
   ### occupancy parameters
-  "beta0","intercept.depth", "intercept.psi",
+  "beta0","intercept.depth", #"intercept.psi",
   "beta1", "psi",
   
   ## goodness of fit parameters
