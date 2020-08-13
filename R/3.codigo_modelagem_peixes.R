@@ -647,6 +647,8 @@ perc50less <- lapply (list_coral_data, function (i)
 list_coral_data <-  c (list_coral_data ,    
                        perc25less,
                        perc50less)
+
+lapply(list_coral_data,range)
 ## ajustar os nomes
 names (list_coral_data) <- c("cob_original", "ocupacao_original",
                              "cob_desc25", "ocupacao_desc25",
@@ -660,7 +662,7 @@ nb <- 30000
 nc <- 3
 na <- 20000
 
-###### modelo com 
+###### modelo 1 
 # efeito de coral no psi
 # efeito do obs no P
 # profundidade no P
@@ -772,7 +774,7 @@ plot(samples_OCCcoral_PdepthObsID[[2]][[1]][[10]]$sims.list$Chi2Closed,
 abline(1,1)
 
 
-###### modelo com 
+###### modelo 2, com 
 # efeito de coral no psi
 # efeito do obs no P
 # profundidade no P
@@ -842,7 +844,6 @@ samples_OCCcoral_PdepthObsIDRndm <- parLapply (cl, list_coral_data, function (co
     
     
     ## inits
-    ## inits
     zst <- aggregate (df_fish_data[[i]][,"y"] , 
                       list (df_fish_data[[i]][,"M"]),
                       FUN=max)$x
@@ -865,7 +866,7 @@ stopCluster(cl)
 
 save(samples_OCCcoral_PdepthObsIDRndm, file=here("output","samples_OCCcoral_PdepthObsIDRndm.RData"))
 
-###### modelo com 
+###### modelo 3, com 
 # efeito de coral no psi
 # efeito da depth no psi
 # efeito do obs no P
@@ -976,7 +977,7 @@ plot(samples_OCCcoralDepth_PObsIDRndm[[1]][[13]]$sims.list$Chi2Closed,
 abline(1,1)
 
 
-###### modelo com 
+###### modelo 4,  com 
 # efeito de coral no psi
 # efeito do obs no P
 # random-intercept P
