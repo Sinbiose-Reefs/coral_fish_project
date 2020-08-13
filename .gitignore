@@ -3,6 +3,10 @@
 .RData
 .Ruserdata
 output/samples_coral_CARModel.RData
+output/StaticModelOccCoral_IDobsRdmP.RData
+samples_OCCcoralDepth_PObsIDRndm.RData
+samples_OCCcoral_PdepthObsIDRndm.RData
+samples_OCCcoral_PdepthObsID.RData
 output/figures_coral
 papers
 MS_presentation
