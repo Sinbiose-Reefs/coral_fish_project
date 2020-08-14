@@ -1,22 +1,21 @@
 #################### composicao com mapa dos pontos, cobertura de coral, e riqueza peixes
+# load packages
+source ("R/packages.R")
+# load basic data
+## fish data
+load (here("output","Data_fish_detection.RData"))
 
-load("Dados_site_occ_mod.RData")
+## coral data
+load (here("output","coral_occupancy_data.RData"))
+
+## coral detection - with coordinates
+load (here("output","Data_coral_detection.RData"))
 
 ##################################
 ############## figura 1   ########
 ##################################
-
-### mapa
-require(here)
-require("rnaturalearth")
-require("rnaturalearthdata")
-
 # mapa mundi
 world <- ne_countries(scale = "medium", returnclass = "sf")
-
-require(ggplot2)
-library(ggrepel)
-require(sf)
 
 # cortar o mapa para ver a america do Sul e parte da central
 wm <- ggplot() + 
@@ -37,271 +36,223 @@ wm <- ggplot() +
         axis.title.y = element_text(size=8),
         title = element_blank()) 
   
-wm
-
-## colar Agaricia na cobertura das spp de coral
-tabela_cob_coral <- cbind (tabela_cob_coral, 
-                           Agaricia = tabela_cob_coral_genero$Agaricia)
-
-## mudar nome das colunas
-colnames(tabela_cob_coral) [c(4:9)] <- c("Millepora alcicornis",
-                                     "Montastraea cavernosa",
-                                     "Mussismilia harttii",
-                                     "Mussismilia hispida",
-                                     "Siderastrea spp.",
-                                     "Agaricia spp.")
-
-
-
 ## fazer uma coluna dizendo que nao tem coral em 3 sitios
-tabela_cob_coral$None <- ifelse (rowSums (tabela_cob_coral [,c(4:9)]) >1,
-                                 0,1)
+list_coral_data$cover_original <- data.frame(list_coral_data$cover_original ,
+  None=ifelse (rowSums (list_coral_data$cover_original) ==0,
+                                 1,0))
 
-tabela_cob_coral$LonJitter <- jitter (tabela_cob_coral$Lon,factor=400)
-tabela_cob_coral$LatJitter <- jitter (tabela_cob_coral$Lat,factor=600)
+list_coral_data$cover_original <- data.frame (list_coral_data$cover_original,
+                                         LonJitter = jitter (coordenadas$Lon,factor=400),
+                                          LatJitter=jitter (coordenadas$Lat,factor=600))
 ## advise to jitter : https://stackoverflow.com/questions/52806580/pie-charts-in-geom-scatterpie-overlapping
 ## pie: http://www.spectdata.com/index.php/2018/10/25/how-to-use-ggplot-to-plot-pie-charts-on-a-map/
 
-require ("scatterpie")
-
 wm_pie <- wm + geom_scatterpie(aes(x=LonJitter, y=LatJitter),
-                     data = tabela_cob_coral,
-                     cols = c("Millepora alcicornis",
-                              "Montastraea cavernosa",
-                              "Mussismilia harttii",
-                              "Mussismilia hispida",
-                              "Siderastrea spp.",
+                     data = list_coral_data$cover_original,
+                     cols = c("Millepora.alcicornis",
+                              "Montastraea.cavernosa",
+                              "Mussismilia.braziliensis",
+                              "Mussismilia.hispida",
+                              "Siderastrea.spp",
                               "None",
-                              "Agaricia spp."),
+                              "Agaricia.spp"),
                      pie_scale = 1.75,
                      sorted_by_radius = F,
                      legend_name = "Species") + 
   
   theme (legend.title = element_text(size=8),
          legend.text = element_text(size=7),
-         legend.position = c(.98, .36),
+         legend.position = c(.98, .5),
          legend.justification = c("right", "top"),
          legend.box.just = "right",
          legend.margin = margin(6,6,6,6),
-         legend.background = element_blank()) 
+         legend.background = element_blank(),
+         title=element_text(size=8)) 
 
-wm_pie 
+wm_pie <- wm_pie + ggtitle("Original cover")+
+  xlab("Longitude") + ylab("Latitude")
 
-wm_pie_col <- wm_pie + scale_fill_manual(values= c("Millepora alcicornis" = "#ca0020",
-                                      "Montastraea cavernosa" = "#dfc27d",
-                                      "Mussismilia harttii" = "#80cdc1",
-                                      "Mussismilia hispida" = "#0571b0",
-                                      "Siderastrea spp." = "#FCBDBD",
+
+wm_pie_col <- wm_pie + scale_fill_manual(values= c("Millepora.alcicornis" = "#ca0020",
+                                      "Montastraea.cavernosa" = "#dfc27d",
+                                      "Mussismilia.braziliensis" = "#80cdc1",
+                                      "Mussismilia.hispida" = "#0571b0",
+                                      "Siderastrea.spp" = "#FCBDBD",
                                       "None" = "#FFFFFF",
-                                      "Agaricia spp." = "#E5806A"))
+                                      "Agaricia.spp" = "#E5806A"))
 wm_pie_col
 
 ggsave(here ("output",filename = "mapa_coral_cover.png"), width = 6,height=6,dpi =300)
 
 ## help with colors : https://www.rapidtables.com/web/color/RGB_Color.html
-
-cbind(tabela_cob_coral$Group.1, 
-  rowSums(tabela_cob_coral[c(4:9)])
-)
-
 ## cobertura media e range por especie
 
-round(apply(tabela_cob_coral[c(4:9)],2,mean),2)
-round(apply(tabela_cob_coral[c(4:9)],2,sd),2)
-round(apply(tabela_cob_coral[c(4:9)],2,range),2)
+round(apply(list_coral_data$cover_original[c(1:6)],2,mean),2)
+round(apply(list_coral_data$cover_original[c(1:6)],2,sd),2)
+round(apply(list_coral_data$cover_original[c(1:6)],2,range),2)
 
-####################################
-#### mapa para genero 
-####################################
+##########
+## MAPA DA PROBABILIDADE DE OCUPACAO DE ESTIMADA PELO MODELO ESPACIAL
+##########
+# jittered coordinates (from the previuos jitter)
+list_coral_data$occupancy_estimate_nb12 <- data.frame (list_coral_data$occupancy_estimate_nb12 ,
+                                              LonJitter = list_coral_data$cover_original$LonJitter,
+                                              LatJitter= list_coral_data$cover_original$LatJitter)
 
-## fazer uma coluna dizendo que nao tem coral em 3 sitios
-tabela_cob_coral_genero$None <- ifelse (rowSums (tabela_cob_coral_genero [c(4:8)]) >1,
-                                 0,1)
+# Mapa
 
-tabela_cob_coral_genero$LonJitter <- jitter (tabela_cob_coral_genero$Lon,factor=400)
-tabela_cob_coral_genero$LatJitter <- jitter (tabela_cob_coral_genero$Lat,factor=600)
-## advise to jitter : https://stackoverflow.com/questions/52806580/pie-charts-in-geom-scatterpie-overlapping
-## pie: http://www.spectdata.com/index.php/2018/10/25/how-to-use-ggplot-to-plot-pie-charts-on-a-map/
-
-require ("scatterpie")
-
-wm_pie <- wm + geom_scatterpie(aes(x=LonJitter, y=LatJitter),
-                               data = tabela_cob_coral_genero,
-                               cols = c("Agaricia",
-                                        "Millepora",
-                                        "Montastraea",
-                                        "Mussismilia",
-                                        "Siderastrea",
-                                        "None"),
+wm_pie_occ <- wm + geom_scatterpie(aes(x=LonJitter, y=LatJitter),
+                               data = list_coral_data$occupancy_estimate_nb12,
+                               cols = c("Millepora.alcicornis",
+                                        "Montastraea.cavernosa",
+                                        "Mussismilia.braziliensis",
+                                        "Mussismilia.hispida",
+                                        "Siderastrea.spp",
+                                        "Agaricia.spp"),
                                pie_scale = 1.75,
                                sorted_by_radius = F,
                                legend_name = "Species") + 
   
   theme (legend.title = element_text(size=8),
          legend.text = element_text(size=7),
-         legend.position = c(.98, .32),
+         legend.position = c(.98, .5),
          legend.justification = c("right", "top"),
          legend.box.just = "right",
          legend.margin = margin(6,6,6,6),
-         legend.background = element_blank()) 
+         legend.background = element_blank(),
+         title=element_text(size=8)) 
 
-wm_pie
+wm_pie_occ <- wm_pie_occ + ggtitle("Site-occupancy probability")+
+  xlab("Longitude") + ylab("Latitude")
 
-wm_pie_col <- wm_pie + scale_fill_manual(values= c("Agaricia" = "#ca0020",
-                                                   "Millepora" = "#dfc27d",
-                                                   "Montastraea" = "#80cdc1",
-                                                   "Mussismilia" = "#0571b0",
-                                                   "Siderastrea" = "#FCBDBD",
-                                                   "None" = "white"))
-wm_pie_col 
+wm_pie_col_occ <- wm_pie_occ + scale_fill_manual(values= c("Millepora.alcicornis" = "#ca0020",
+                                                   "Montastraea.cavernosa" = "#dfc27d",
+                                                   "Mussismilia.braziliensis" = "#80cdc1",
+                                                   "Mussismilia.hispida" = "#0571b0",
+                                                   "Siderastrea.spp" = "#FCBDBD",
+                                                   "Agaricia.spp" = "#E5806A"))
+wm_pie_col_occ
 
-ggsave(here ("output",filename = "mapa_coral_cover_genero.png"), width = 6,height=6,dpi =300)
-
-## cobertura por genero
-
-cbind(tabela_cob_coral_genero$Group.1, 
-      rowSums(tabela_cob_coral_genero[c(4:8)])
-)
-
-## cobertura media e range por especie
-
-round(apply(tabela_cob_coral_genero[c(4:8)],2,mean),2)
-round(apply(tabela_cob_coral_genero[c(4:8)],2,sd),2)
-round(apply(tabela_cob_coral_genero[c(4:8)],2,range),2)
-
+ggsave(here ("output",filename = "mapa_coral_occ.png"), width = 6,height=6,dpi =300)
 
 ## number de transeccoes
-min(rowSums(is.na(arranjo_deteccoes_sitio_transeccao[,,1])==F))
-tabela_cob_coral$Group.1 [which ( rowSums(is.na(arranjo_deteccoes_sitio_transeccao[,,1])==F) == min(rowSums(is.na(arranjo_deteccoes_sitio_transeccao[,,1])==F)))]
-
-mean(rowSums(is.na(arranjo_deteccoes_sitio_transeccao[,,1])==F))
-sd(rowSums(is.na(arranjo_deteccoes_sitio_transeccao[,,1])==F))
-
-tabela_cob_coral$Group.1 [which ( rowSums(is.na(arranjo_deteccoes_sitio_transeccao[,,1])==F) == min(rowSums(is.na(arranjo_deteccoes_sitio_transeccao[,,1])==F)))]
-
-max(rowSums(is.na(arranjo_deteccoes_sitio_transeccao[,,1])==F))
-tabela_cob_coral$Group.1 [which ( 
-  rowSums(is.na(arranjo_deteccoes_sitio_transeccao[,,1])==F) == max(rowSums(is.na(arranjo_deteccoes_sitio_transeccao[,,1])==F)))]
+#min(rowSums(is.na(arranjo_deteccoes_sitio_transeccao[,,1])==F))
+#tabela_cob_coral$Group.1 [which ( rowSums(is.na(arranjo_deteccoes_sitio_transeccao[,,1])==F) == min(rowSums(is.na(arranjo_deteccoes_sitio_transeccao[,,1])==F)))]
+#mean(rowSums(is.na(arranjo_deteccoes_sitio_transeccao[,,1])==F))
+#sd(rowSums(is.na(arranjo_deteccoes_sitio_transeccao[,,1])==F))
+#tabela_cob_coral$Group.1 [which ( rowSums(is.na(arranjo_deteccoes_sitio_transeccao[,,1])==F) == min(rowSums(is.na(arranjo_deteccoes_sitio_transeccao[,,1])==F)))]
+#max(rowSums(is.na(arranjo_deteccoes_sitio_transeccao[,,1])==F))
+#tabela_cob_coral$Group.1 [which ( 
+#  rowSums(is.na(arranjo_deteccoes_sitio_transeccao[,,1])==F) == max(rowSums(is.na(arranjo_deteccoes_sitio_transeccao[,,1])==F)))]
 
 ## numero de deteccoes por especie
-
-det_per_sp <- data.frame (
-  ndet=as.numeric(apply (arranjo_deteccoes_sitio_transeccao,3,sum,na.rm=T)),
-  sp=especie)
-det_per_sp <- det_per_sp [order(det_per_sp$ndet),]
-mean(det_per_sp$ndet)
-sd(det_per_sp$ndet)
-
-## number of sites per species
-range(
-  colSums (
-    apply (arranjo_deteccoes_sitio_transeccao,c(1,3),max,na.rm=T)
-))
-
-mean(
-  colSums (
-    apply (arranjo_deteccoes_sitio_transeccao,c(1,3),max,na.rm=T)
-  ))
-
-sd(
-  colSums (
-    apply (arranjo_deteccoes_sitio_transeccao,c(1,3),max,na.rm=T)
-  ))
-
-
-## qual especie que ocorreu em quase otodos os sitios?
-especie [order (colSums (
-    apply (arranjo_deteccoes_sitio_transeccao,c(1,3),max,na.rm=T)
-    ))]
-
-colSums (
-  apply (arranjo_deteccoes_sitio_transeccao,c(1,3),max,na.rm=T)
-) [order (colSums (
-  apply (arranjo_deteccoes_sitio_transeccao,c(1,3),max,na.rm=T)
-))]
+#
+#det_per_sp <- data.frame (
+#  ndet=as.numeric(apply (arranjo_deteccoes_sitio_transeccao,3,sum,na.rm=T)),
+#  sp=especie)
+#det_per_sp <- det_per_sp [order(det_per_sp$ndet),]
+#mean(det_per_sp$ndet)
+#sd(det_per_sp$ndet)
+#
+### number of sites per species
+#range(
+#  colSums (
+#    apply (arranjo_deteccoes_sitio_transeccao,c(1,3),max,na.rm=T)
+#))
+#
+#mean(
+#  colSums (
+#    apply (arranjo_deteccoes_sitio_transeccao,c(1,3),max,na.rm=T)
+#  ))
+#
+#sd(
+#  colSums (
+#    apply (arranjo_deteccoes_sitio_transeccao,c(1,3),max,na.rm=T)
+#  ))
 
 
-## numero de ocasioes
-sum (is.na (
-  arranjo_deteccoes_sitio_transeccao[,,1]
-)!= T)
+### qual especie que ocorreu em quase otodos os sitios?
+#especie [order (colSums (
+#    apply (arranjo_deteccoes_sitio_transeccao,c(1,3),max,na.rm=T)
+#    ))]
+#
+#colSums (
+#  apply (arranjo_deteccoes_sitio_transeccao,c(1,3),max,na.rm=T)
+#) [order (colSums (
+#  apply (arranjo_deteccoes_sitio_transeccao,c(1,3),max,na.rm=T)
+#))]
+#
 
-## numero de ocasioes considerando NAs - para o maximo de 58 transects
-sum (is.na (
-  arranjo_deteccoes_sitio_transeccao[,,1]
-)!= T)#+
-sum (is.na (
-  arranjo_deteccoes_sitio_transeccao[,,1]
-) == T)
+### numero de ocasioes
+#sum (is.na (
+#  arranjo_deteccoes_sitio_transeccao[,,1]
+#)!= T)
+#
+### numero de ocasioes considerando NAs - para o maximo de 58 transects
+#sum (is.na (
+#  arranjo_deteccoes_sitio_transeccao[,,1]
+#)!= T)#+
+#sum (is.na (
+#  arranjo_deteccoes_sitio_transeccao[,,1]
+#) == T)
 
 ### para no maximo 17 
-sum (is.na (
-  arranjo_deteccoes_sitio_transeccao[,1:17,1]
-)!= T)# +
-  sum (is.na (
-    arranjo_deteccoes_sitio_transeccao[,1:17,1]
-  ) == T)
-
+#sum (is.na (
+#  arranjo_deteccoes_sitio_transeccao[,1:17,1]
+#)!= T)# +
+#  sum (is.na (
+#    arranjo_deteccoes_sitio_transeccao[,1:17,1]
+#  ) == T)
+#
 ### para no maximo 5
-sum (is.na (
-  arranjo_deteccoes_sitio_transeccao[,1:5,1]
-)!= T)#+
-  sum (is.na (
-    arranjo_deteccoes_sitio_transeccao[,1:5,1]
-  ) == T)
-
+#sum (is.na (
+#  arranjo_deteccoes_sitio_transeccao[,1:5,1]
+#)!= T)#+
+#  sum (is.na (
+#    arranjo_deteccoes_sitio_transeccao[,1:5,1]
+#  ) == T)
+#
+#  
+### quantos sitios cada observador visitou em media,
+#
+#nobs_per_site <- unlist( 
+#  
+#  lapply (seq(1,nrow (tabela_obs)), function (i)
+#  
+#    length (unique (as.numeric(tabela_obs [i,][is.na(tabela_obs [i,])!=T]),na.rm=T))
+#  )
+#)
+#
+#mean(nobs_per_site)
+#sd(nobs_per_site)
+#range(nobs_per_site)
+### e quantas observacoes cada observador fez
+#
+#obs_per_obs <- unlist (
+#
+# lapply (seq(1,13), function (obs)
+# 
+#   table(tabela_obs == obs)[2]))
+#
+#mean(obs_per_obs,na.rm=T)
+#sd(obs_per_obs,na.rm=T)
+#range(obs_per_obs,na.rm=T)
+##################################
+############## figure 2   ########
+##################################
   
-  ## quantos sitios cada observador visitou em media,
-  
-  nobs_per_site <- unlist( 
-    
-    lapply (seq(1,nrow (tabela_obs)), function (i)
-    
-      length (unique (as.numeric(tabela_obs [i,][is.na(tabela_obs [i,])!=T]),na.rm=T))
-    )
-  )
-  
-  mean(nobs_per_site)
-  sd(nobs_per_site)
-  range(nobs_per_site)
-  ## e quantas observacoes cada observador fez
-  
-  obs_per_obs <- unlist (
-  
-    lapply (seq(1,13), function (obs)
-    
-      table(tabela_obs == obs)[2]))
-  
-  mean(obs_per_obs,na.rm=T)
-  sd(obs_per_obs,na.rm=T)
-  range(obs_per_obs,na.rm=T)
-  ##################################
-  ############## figura 2   ########
-  ##################################
-  
-require(here)
-require(jagsUI)
-
-## resultados para especie  
+## LOAD MODEL RESULTS
 
 load(here("output","samples_OCCcoral_PdepthObsID.RData")) 
 load(here("output","samples_OCCcoral_PdepthObsIDRndm.RData"))
 load(here("output","samples_OCCcoralDepth_PObsIDRndm.RData"))
 load(here("output","StaticModelOccCoral_IDobsRdmP.RData"))
 
-## resultados para genero
-load(here("output","samples_OCCcoral_PdepthObsID_gen.RData")) 
-load(here("output","samples_OCCcoral_PdepthObsIDRndm_gen.RData"))
-load(here("output","samples_OCCcoralDepth_PObsIDRndm_gen.RData"))
-load(here("output","StaticModelOccCoral_IDobsRdmP_gen.RData"))
-
-### destes de genero, pegar somente os resultados de agaricia
-##  e colar junto com os rseultados das outras sp de coral
-## colocar estes resultados em uma lista
-lista_modelos <- list(c(samples_OCCcoral_PdepthObsID,list(samples_OCCcoral_PdepthObsID_gen$Agaricia)),
-     c(samples_OCCcoral_PdepthObsIDRndm, list(samples_OCCcoral_PdepthObsIDRndm_gen$Agaricia)),
-     c(samples_OCCcoralDepth_PObsIDRndm, list(samples_OCCcoralDepth_PObsIDRndm_gen$Agaricia)),
-     c(StaticModelOccCoral_IDobsRdmP, list(StaticModelOccCoral_IDobsRdmP_gen$Agaricia)))
+## Creating a list with the results of each model
+lista_modelos <- list(samples_OCCcoral_PdepthObsID,
+     samples_OCCcoral_PdepthObsIDRndm,
+     samples_OCCcoralDepth_PObsIDRndm,
+     StaticModelOccCoral_IDobsRdmP)
 
 ## arg para fazer uma tabela de efeito, bpv e coeff por sp
 sp <- c(names (samples_OCCcoral_PdepthObsID),
