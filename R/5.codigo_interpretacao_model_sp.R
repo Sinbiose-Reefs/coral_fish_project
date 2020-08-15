@@ -173,8 +173,10 @@ funcao_tabela_efeitos_perda_coral <- function (original, perda25) {
   sp_eff_neg <- table(efeito_negativo  [,2] < efeito_negativo [,1])
   
   output <- data.frame (SpCoral= sp_coral[k],
-                        DecEffPos = sp_eff_pos [1],
-                       IncEffNeg = sp_eff_neg[1])
+                        DecEffPos = sp_eff_pos [2],
+                        IncEffPos=sp_eff_pos [1],
+                       IncEffNeg = sp_eff_neg[2],
+                       DecEffNeg=sp_eff_neg[1])
   ; output
   
  })
