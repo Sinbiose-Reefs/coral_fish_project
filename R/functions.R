@@ -64,4 +64,7 @@ initial_map_function <- function (df1, df2) {
 
 ### 
 
+closest<-function(xv,sv){
+  xv[which(abs(xv-sv)==min(abs(xv-sv)))]}
+
 
