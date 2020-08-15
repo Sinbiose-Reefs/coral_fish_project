@@ -8,6 +8,7 @@ require(reshape2) ## para funcao tabela dinamica e melt (formato longo)
 require(rnaturalearth)
 require(rnaturalearthdata)
 require(ggplot2)
+require(gridExtra)
 require(ggrepel)
 require ("scatterpie")
 require(sf)
@@ -22,3 +23,7 @@ require(abind)
 
 ## pacote para ler os resultados dos modelos de ocupacao
 require(jagsUI)
+
+## para bipartite
+require(bipartite)
+
