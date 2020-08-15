@@ -1,15 +1,13 @@
 #################### composicao com mapa dos pontos, cobertura de coral, e riqueza peixes
-# load packages
+# load packages and functions
 source ("R/packages.R")
 source ("R/functions.R")
 
 # load basic data
 ## fish data
 load (here("output","Data_fish_detection.RData"))
-
 ## coral data
 load (here("output","coral_occupancy_data.RData"))
-
 ## coral detection - with coordinates
 load (here("output","Data_coral_detection.RData"))
 
@@ -84,7 +82,7 @@ wm_pie_col <- wm_pie + scale_fill_manual(values= c("Millepora.alcicornis" = "#ca
                                       "Agaricia.spp" = "#E5806A"))
 wm_pie_col
 
-ggsave(here ("output",filename = "mapa_coral_cover.png"), width = 6,height=6,dpi =300)
+ggsave(here ("output","Figures_results",filename = "mapa_coral_cover.png"), width = 6,height=6,dpi =300)
 
 ## help with colors : https://www.rapidtables.com/web/color/RGB_Color.html
 ## cobertura media e range por especie
@@ -135,21 +133,113 @@ wm_pie_col_occ <- wm_pie_occ + scale_fill_manual(values= c("Millepora.alcicornis
                                                    "Agaricia.spp" = "#E5806A"))
 wm_pie_col_occ
 
-ggsave(here ("output",filename = "mapa_coral_occ.png"), width = 6,height=6,dpi =300)
+ggsave(here ("output","Figures_results",filename = "mapa_coral_occ.png"), width = 6,height=6,dpi =300)
 
+#####
 ### load extracted estimates
 load(here("output","coefficients_ORIGINAL.RData"))
 load(here("output","coefficients_DISCOUNTING25.RData"))
 load(here("output","coefficients_DISCOUNTING50.RData"))
 
-## effect for bipartite plot
-## coeficientes positivos
-efeito_para_bipartite_original_positivo <- efeito_para_bipartite_original_reg1* significance_original_reg1 
-efeito_para_bipartite_original_positivo <- efeito_para_bipartite_original_positivo [which (rowSums (efeito_para_bipartite_original_positivo)!=0),]
+## a remoção de coral resultou em algum efeito?
+
+funcao_tabela_efeitos_perda_coral <- function (original, perda25) {
+  
+  do.call(rbind,  # desmanchar o dataframe 'output'
+  
+            lapply(seq(1,length(sp_coral)), function (k) { ## passar por cada especie de coral
+    
+  # tabela com efeitos positivos  
+  efeito_positivo <- ifelse (
+      cbind ( original[,k],
+              perda25[,k]) >=0 ,
+      cbind ( original[,k],
+              perda25[,k]  ),
+      0)
+  # removendo sp com efeito negativo
+  efeito_positivo <- efeito_positivo [which(rowSums(efeito_positivo)>0),]
+  # contar as especeis em que a remocao do coral diminuiu o efeito do coral
+  sp_eff_pos <- table(efeito_positivo [,2] < efeito_positivo [,1])
+
+  ## se teve efeito negativo, mantem o valor, se nao 0
+  efeito_negativo <- ifelse (
+    cbind ( original[,k],
+            perda25[,k] ) <=0 ,
+    cbind ( original[,k],
+            perda25[,k]),
+    0)
+  efeito_negativo  <- efeito_negativo [which(rowSums(efeito_negativo )<0),]
+  # contar as especeis em que a remocao do coral aumentou o efeito negativo
+  sp_eff_neg <- table(efeito_negativo  [,2] < efeito_negativo [,1])
+  
+  output <- data.frame (SpCoral= sp_coral[k],
+                        DecEffPos = sp_eff_pos [1],
+                       IncEffNeg = sp_eff_neg[1])
+  ; output
+  
+ })
+)}
+
+funcao_tabela_efeitos_perda_coral (efeito_para_bipartite_occupancy_reg1,
+                                   efeito_para_bipartite_occupancy25_reg1)
+funcao_tabela_efeitos_perda_coral (efeito_para_bipartite_occupancy_reg2,
+                                   efeito_para_bipartite_occupancy25_reg2)
+
+##### 
+
+funcao_bipartite_pdf <- function (efeitos_original, significancia_original,
+          efeitos_perda, significancia_perda,regiao) {
+  
+      ## effect for bipartite plot
+      ## coeficientes positivos
+      efeito_para_bipartite_occupancy_positivo <- efeitos_original* significancia_original 
+      #efeito_para_bipartite_occupancy_positivo <- efeito_para_bipartite_occupancy_positivo [which (rowSums (efeito_para_bipartite_occupancy_positivo)!=0),]
+      # perda25
+      efeito_para_bipartite_occupancy25_positivo <- efeitos_perda * significancia_perda
+      #efeito_para_bipartite_occupancy25_positivo <- efeito_para_bipartite_occupancy25_positivo [which (rowSums (efeito_para_bipartite_occupancy25_positivo)!=0),]
+      who_win_who_loss_pos_coefficient <- efeito_para_bipartite_occupancy25_positivo-efeito_para_bipartite_occupancy_positivo  
+      who_win_who_loss_pos_coefficient <- who_win_who_loss_pos_coefficient [which(rowSums(who_win_who_loss_pos_coefficient )== 0) !=T,]  
+      
+      ## quem esta se fudendo
+      se_fudendo <- ifelse (who_win_who_loss_pos_coefficient <0,who_win_who_loss_pos_coefficient*-1,0)
+      
+      pdf(here ("output","Figures_results",paste("plotWebSp_se_fudendo_",regiao,".pdf")),onefile = T)
+      
+      plotweb (t(se_fudendo),
+               method="cca",
+               labsize = 0.7,
+               ybig=1.75,
+               col.interaction = "#ffa500",
+               text.rot=90)
+      dev.off()
+      
+      ganhando <- ifelse (who_win_who_loss_pos_coefficient >0,who_win_who_loss_pos_coefficient,0)
+      
+      pdf(here ("output","Figures_results",paste("plotWebSp_ganhando_",regiao,".pdf")),onefile = T)
+      
+      plotweb (t(ganhando ),
+               method="cca",
+               labsize = 0.7,
+               ybig=1.75,
+               col.interaction = "#7FFFD4",
+               text.rot=90)
+      dev.off ()
+      
+}
+
+funcao_bipartite_pdf(efeito_para_bipartite_occupancy_reg1, significance_occupancy_reg1,
+                     efeito_para_bipartite_occupancy25_reg1,significance_occupancy25_reg1,
+                     "nord")
+
+funcao_bipartite_pdf(efeito_para_bipartite_occupancy_reg1, significance_occupancy_reg2,
+                     efeito_para_bipartite_occupancy25_reg1,significance_occupancy25_reg2,
+                     "sud")
+
+
 
 ## coeficientes negativos
-efeito_para_bipartite_original_negative <- efeito_para_bipartite_original_reg1*-1
-efeito_para_bipartite_original_negative <- efeito_para_bipartite_original_negative [which (rowSums (efeito_para_bipartite_original_negative)!=0),]
+efeito_para_bipartite_occupancy_negative <- efeito_para_bipartite_occupancy_reg1*-1
+efeito_para_bipartite_occupancy_negative <- efeito_para_bipartite_occupancy_negative [which (rowSums (efeito_para_bipartite_occupancy_negative)!=0),]
 
 ## grafico tipo plotweb
 
