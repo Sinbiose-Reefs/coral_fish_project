@@ -340,7 +340,8 @@ tipo_recife <- cast(bentos_subset,
                     value= "Cover",
                     fun.aggregate = max)
 
-tipo_recife <- tipo_recife [match (rownames (tab_completa_site_ocasiao[[1]]), tipo_recife$eventID_MOD),]
+tipo_recife <- tipo_recife [match (rownames (tab_completa_site_ocasiao[[1]]), 
+                                   substr(tipo_recife$eventID_MOD,10,100)),]
 recife_biog <- as.factor (ifelse (tipo_recife  [,2] >0, "1","0") )
 
 ## lista das covariaveis
