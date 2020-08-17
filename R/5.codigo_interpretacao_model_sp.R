@@ -1,4 +1,5 @@
-#################### composicao com mapa dos pontos, cobertura de coral, e riqueza peixes
+########### composicao com mapa dos pontos, cobertura de coral, e riqueza peixes
+
 # load packages and functions
 source ("R/packages.R")
 source ("R/functions.R")
@@ -188,6 +189,14 @@ funcao_tabela_efeitos_perda_coral (efeito_para_bipartite_occupancy_reg2,
                                    efeito_para_bipartite_occupancy25_reg2)
 
 ##### 
+efeitos_original, significancia_original,
+efeitos_perda <- 
+  significancia_perda
+
+efeito_para_bipartite_occupancy_reg1 
+significance_occupancy_reg1
+efeito_para_bipartite_occupancy25_reg1
+significance_occupancy25_reg1
 
 funcao_bipartite_pdf <- function (efeitos_original, significancia_original,
           efeitos_perda, significancia_perda,regiao) {
@@ -233,8 +242,8 @@ funcao_bipartite_pdf(efeito_para_bipartite_occupancy_reg1, significance_occupanc
                      efeito_para_bipartite_occupancy25_reg1,significance_occupancy25_reg1,
                      "nord")
 
-funcao_bipartite_pdf(efeito_para_bipartite_occupancy_reg1, significance_occupancy_reg2,
-                     efeito_para_bipartite_occupancy25_reg1,significance_occupancy25_reg2,
+funcao_bipartite_pdf(efeito_para_bipartite_occupancy_reg2, significance_occupancy_reg2,
+                     efeito_para_bipartite_occupancy25_reg2,significance_occupancy25_reg2,
                      "sud")
 
 
