@@ -647,8 +647,6 @@ perc50less <- lapply (list_coral_data, function (i)
 list_coral_data <-  c (list_coral_data ,    
                        perc25less,
                        perc50less)
-
-lapply(list_coral_data,range)
 ## ajustar os nomes
 names (list_coral_data) <- c("cob_original", "ocupacao_original",
                              "cob_desc25", "ocupacao_desc25",
@@ -662,7 +660,7 @@ nb <- 30000
 nc <- 3
 na <- 20000
 
-###### modelo 1 
+###### modelo com 
 # efeito de coral no psi
 # efeito do obs no P
 # profundidade no P
@@ -691,7 +689,7 @@ params <- c(
 
 ### aplicar o modelo a cada especie de peixe e coral
 
-cl <- makeCluster(4, setup_strategy="sequential") ## number of cores = generally ncores -1
+cl <- makeCluster(2) ## number of cores = generally ncores -1
 
 # exportar pacote para os cores
 clusterEvalQ(cl, library(jagsUI))
@@ -756,8 +754,7 @@ save(samples_OCCcoral_PdepthObsID, file=here("output","samples_OCCcoral_PdepthOb
 ## chi-square statistics
 Chi2ratioClosed <- lapply (samples_OCCcoral_PdepthObsID, function (i)
   lapply (i, function (k)
-    lapply(k, function (o)
-      o$sims.list$Chi2Closed/o$sims.list$Chi2repClosed)))
+    k$sims.list$Chi2Closed/k$sims.list$Chi2repClosed))
 
 ## bayesian p-value
 
@@ -774,7 +771,7 @@ plot(samples_OCCcoral_PdepthObsID[[2]][[1]][[10]]$sims.list$Chi2Closed,
 abline(1,1)
 
 
-###### modelo 2, com 
+###### modelo com 
 # efeito de coral no psi
 # efeito do obs no P
 # profundidade no P
@@ -805,8 +802,10 @@ params <- c(
 
 ### aplicar o modelo a cada especie e especie de coral
 
-cl <- makeCluster(4, setup_strategy="sequential") ## number of cores = generally ncores -1
-# The help is here: r parallel::makeCluster() hangs on MAC
+require(parallel)
+
+cl <- makeCluster(2) ## number of cores = generally ncores -1
+
 # exportar pacote para os cores
 clusterEvalQ(cl, library(jagsUI))
 clusterEvalQ(cl, library(vegan))
@@ -844,6 +843,7 @@ samples_OCCcoral_PdepthObsIDRndm <- parLapply (cl, list_coral_data, function (co
     
     
     ## inits
+    ## inits
     zst <- aggregate (df_fish_data[[i]][,"y"] , 
                       list (df_fish_data[[i]][,"M"]),
                       FUN=max)$x
@@ -866,7 +866,7 @@ stopCluster(cl)
 
 save(samples_OCCcoral_PdepthObsIDRndm, file=here("output","samples_OCCcoral_PdepthObsIDRndm.RData"))
 
-###### modelo 3, com 
+###### modelo com 
 # efeito de coral no psi
 # efeito da depth no psi
 # efeito do obs no P
@@ -881,7 +881,7 @@ params <- c(
   "sd.p","alpha0",
   
   ### occupancy parameters
-  "beta0","intercept.depth", #"intercept.psi",
+  "beta0","intercept.depth", "intercept.psi",
   "beta1", "psi",
   
   ## goodness of fit parameters
@@ -897,7 +897,9 @@ params <- c(
 
 ### aplicar o modelo a cada especie e especie de coral
 
-cl <- makeCluster(4, setup_strategy="sequential") ## number of cores = generally ncores -1
+require(parallel)
+
+cl <- makeCluster(2) ## number of cores = generally ncores -1
 
 # exportar pacote para os cores
 clusterEvalQ(cl, library(jagsUI))
@@ -977,7 +979,7 @@ plot(samples_OCCcoralDepth_PObsIDRndm[[1]][[13]]$sims.list$Chi2Closed,
 abline(1,1)
 
 
-###### modelo 4,  com 
+###### modelo com 
 # efeito de coral no psi
 # efeito do obs no P
 # random-intercept P
@@ -1008,7 +1010,10 @@ params <- c(
 
 ### aplicar o modelo a cada especie e especie de coral
 
-cl <- makeCluster(4, setup_strategy="sequential") ## number of cores = generally ncores -1
+require(parallel)
+
+cl <- makeCluster(2) ## number of cores = generally ncores -1
+
 
 # exportar pacote para os cores
 clusterEvalQ(cl, library(jagsUI))
