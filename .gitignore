@@ -7,8 +7,6 @@ output/StaticModelOccCoral_IDobsRdmP.RData
 samples_OCCcoralDepth_PObsIDRndm.RData
 samples_OCCcoral_PdepthObsIDRndm.RData
 samples_OCCcoral_PdepthObsID.RData
-output/figures_coral
-output/*.png
 papers
 MS_presentation
 R/modelos_previos
