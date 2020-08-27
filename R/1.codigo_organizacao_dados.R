@@ -9,14 +9,17 @@ source("R/functions.R")
 ## E ESPECIE (3D). AO FIM, A IDEIA EH FAZER DATA FRAMES EM FORMATO LONGO PARA OS MODELOS DE OCUPACAO DE SITIOS, DE 
 ## MODO A REMOVER OS NAs E TRABALHAR SOMENTE COM AS OBSERVACOES
 
-
 ## dados dos bentos
 bentos <- read.xlsx(here("data","detection","Updated_compiled_quadrats_allsites.xlsx"),
-                    sheet = 1, colNames = TRUE)
+                    sheet = 1, colNames = TRUE,detectDates=F)
+## converter data em data - bug do pacote openxlsx
+bentos$eventDate <-convertToDate(bentos$eventDate)
 
 ## dados dos peixes
 peixes <- read.xlsx(here("data","detection","UpdatedData_RMorais_et_al_2017.xlsx"),
-                    sheet = 1, colNames = TRUE)
+                    sheet = 1, colNames = TRUE,detectDates=F)
+## converter data em data - bug do pacote openxlsx
+peixes$eventDate <-convertToDate(peixes$eventDate)
 
 ## OBTER A ID DE TODAS AS ESPECIES DE PEIXES ENCONTRADAS POR MORAIS
 todas_sp_Morais <- unique (peixes$ScientificName)
@@ -32,7 +35,12 @@ locais_corais <- c("rgnor_parrachos",
                    "espirito_santo",
                    "arraial",
                    "ilhabela",
-                   "alcatrazes")
+                   "alcatrazes",
+                   "manuel_luis",
+                   ## ilhas
+                   "noronha",
+                   "rocas",
+                   "trindade")
 
 ## subset dos sitios baseado na quantidade de coral
 peixes <- peixes [which(peixes$Locality %in% locais_corais),]
@@ -316,7 +324,13 @@ nord <- cast(peixes_subset,
 
 ## colocar na ordem da tabela 
 nord <- nord [match (rownames (tab_completa_site_ocasiao [[1]]),nord$locality_site),]
-regiao_nord <-  ifelse(nord [,2] >0,1,0)
+## regiao 
+ilhas <-  ifelse(nord [,3] >0,"oc.isl",0)
+nor <-  ifelse(nord [,2] >0,"nord",0)
+sud <-  ifelse(nord [,4] >0,"sud",0)
+regiao <-  c(ilhas[which(ilhas !=0)],
+             nor[which(nor !=0)],
+             sud[which(sud !=0)])
 
 ## profundidade do sitio de amostragem
 ## fundo ou raso
@@ -341,14 +355,16 @@ tipo_recife <- cast(bentos_subset,
                     fun.aggregate = max)
 
 tipo_recife <- tipo_recife [match (rownames (tab_completa_site_ocasiao[[1]]), 
-                                   substr(tipo_recife$eventID_MOD,10,100)),]
+                                   gsub ("ne_reefs.","",gsub ("se_reefs.","",gsub ("oc_isl.","", tipo_recife$eventID_MOD)))),]
+
 recife_biog <- as.factor (ifelse (tipo_recife  [,2] >0, "1","0") )
 
 ## lista das covariaveis
 
 covariates_site <- list (biog_reef = recife_biog,
                          depth = prof, 
-                         NE_region = regiao_nord)
+                         region = regiao,
+                         site_names = tipo_recife$eventID_MOD)
 
 #######################################################################################
 #######################################################################################
@@ -365,11 +381,12 @@ trans_obs <-  lapply (unique_comb_locality_site, function (i)
         fun.aggregate = min))
 
 ## obs to add, NA nos transectos inexistentes
+## 83 eh o maximo de transeccoes em uma localidade (noronha)
 obs_to_add <- lapply (trans_obs, function (i) 
   matrix (NA, nrow=1,
-          ncol = length (seq (1,58) [which (seq (1,58) %in% colnames (i) [-1]  == F)]),
+          ncol = length (seq (1,83) [which (seq (1,83) %in% colnames (i) [-1]  == F)]),
           dimnames = list (NULL,
-                           seq (1,58) [which (seq (1,58) %in% colnames (i) [-1]  == F)]
+                           seq (1,83) [which (seq (1,83) %in% colnames (i) [-1]  == F)]
           )
   )
 )
@@ -436,13 +453,13 @@ df_fish_data <- lapply (seq(1,dim(arranjo_deteccoes_sitio_transeccao)[3]), funct
 ## obter dados de cobertura dos corais
 
 sitios_bentos <- unique (bentos_subset$eventID_MOD)
-sitios_bentos <- gsub ("se_reefs.","",gsub ("ne_reefs.","",sitios_bentos))
+sitios_bentos <- gsub ("oc_isl.","",gsub ("se_reefs.","",gsub ("ne_reefs.","",sitios_bentos)))
 
 ## fechar com os nomes dos sitios dos dados de peixes
 sitios_bentos <- sitios_bentos[match(rownames (tab_completa_site_ocasiao[[1]]), sitios_bentos)]
 
 ## editar tb na tabela original
-bentos_subset$eventID_MOD <- gsub ("se_reefs.","",gsub ("ne_reefs.","",bentos_subset$eventID_MOD))
+bentos_subset$eventID_MOD <- gsub ("oc_isl.","",gsub ("se_reefs.","",gsub ("ne_reefs.","",bentos_subset$eventID_MOD)))
 
 ## uma tabela dinamica por sitio, com a especie na linha, e o video na coluna
 cob_bentos <- lapply (sitios_bentos, function (i)
@@ -462,9 +479,6 @@ sp_corais <- c("Agaricia.fragilis", "Agaricia.humilis", "Agaricia.sp","Favia.gra
                "Mussismilia.hispida", "Mussismilia.leptophylla", "Porites.astreoides",
                "Porites.branneri", "Porites.sp", "Siderastrea.spp")
 
-## lista dos generos de corais nos dados de Aued
-genero <- c ("Agaricia", "Favia","Madracis","Meandrina","Millepora","Montastraea","Mussismilia","Porites",
-             "Siderastrea")
 
 # agora pegar o subconjunto das spp. de corais 
 cob_bentos <- lapply (cob_bentos, function (i)
@@ -475,7 +489,6 @@ cob_bentos <- lapply (cob_bentos, function (i)
 
 ## ajustar os nomes das colunas, removendo a palavra "Video" (menos do primeiro nome- que eh a especie)
 ## e colocar as colunas da tabela em ordem de videos
-
 
 cob_bentos <- lapply (cob_bentos, function (i) {
   # salvar sp
@@ -574,28 +587,43 @@ dimnames(arranjo_cob_coral_sitio_video)[[3]][1] <- "Agaricia.spp"
 
 
 ## transformar cobertura em dado binario (deteccao e nao deteccao do coral k no sitio i, video j)
-arranjo_deteccoes_sitio_video_coral <- arranjo_cob_coral_sitio_video
-arranjo_deteccoes_sitio_video_coral [arranjo_deteccoes_sitio_video_coral >0] <- 1 
+arranjo_corais <- arranjo_cob_coral_sitio_video
 
-## numero de videos com deteccao, por sitio e especie de coral
-ndet_video <- apply (arranjo_deteccoes_sitio_video_coral > 0, c(1,3),sum,na.rm=T)
-
-## quais especies de coral foram detectadas em mais de 6 sitios? (+- 20% dos sitios)
-corais_mais_freq <- which (colSums ( 
-                              ifelse (ndet_video > 0,1,ndet_video)
-                            ) >=6)
-
-## remover os corais raros (aqueles que foram detectados em menos de 6 sitios)
-corais_mais_freq <- arranjo_deteccoes_sitio_video_coral[,,corais_mais_freq]
+# ## utilizando difentes thresholds
+# threshold <- c(0,0.05, 0.1,0.15,0.2)
+# 
+# teste <- lapply (threshold, function (i) 
+#   ifelse (arranjo_deteccoes_sitio_video_coral > i,
+#         1,0))
+# 
+# lapply (teste, function (i)
+#   colSums (
+#     apply (i > 0, c(1,3),sum,na.rm=T)
+# ))
+# 
+# #arranjo_deteccoes_sitio_video_coral [arranjo_deteccoes_sitio_video_coral >0] <- 1 
+# 
+# ## numero de videos com deteccao, por sitio e especie de coral
+# ndet_video <- apply (arranjo_deteccoes_sitio_video_coral > 0, c(1,3),sum,na.rm=T)
+# 
+# ## quais especies de coral foram detectadas em mais de 6 sitios? (+- 20% dos sitios)
+# corais_mais_freq <- which (colSums ( 
+#                               ifelse (ndet_video > 0,1,ndet_video)
+#                             ) >=6)
+# 
+# ## remover os corais raros (aqueles que foram detectados em menos de 6 sitios)
+# corais_mais_freq <- arranjo_deteccoes_sitio_video_coral[,,corais_mais_freq]
+# 
+# 
+# ### renomear corais mais frequentes para arranjo_corais
+# arranjo_corais <- corais_mais_freq
+# 
 
 ## names sp analisadas
-sp_coral <- dimnames(corais_mais_freq )[[3]]
+sp_coral <- dimnames(arranjo_corais )[[3]]
 
-### renomear corais mais frequentes para arranjo_corais
-arranjo_corais <- corais_mais_freq
-
-## finalmente, transformar em formato longo
-
+## 
+# ## finalmente, transformar em formato longo
 df_coral_data <- lapply (seq(1,dim(arranjo_corais)[3]), function (sp) {
   
   ## transforma matriz em vetor
@@ -635,7 +663,7 @@ coordenadas <- coordenadas [match(sitios_bentos,coordenadas$Group.1),]
 
 ### save data - para os modelos de coral
 
-save (arranjo_cob_coral_sitio_video, ### dados de cobertura 
+save (arranjo_corais, ### dados de cobertura 
       df_coral_data, ## df em formato longo para modelagem
       coordenadas,# coordenadas dos sitios
       sp_coral,## nomes das sp analisadas
@@ -644,7 +672,8 @@ save (arranjo_cob_coral_sitio_video, ### dados de cobertura
 
 ### salvar os dados para o modelo de ocupacao dos peixes
 
-save (df_fish_data,## dados de peixes para a modelagem
+save (arranjo_deteccoes_sitio_transeccao,
+      df_fish_data,## dados de peixes para a modelagem
       covariates_site, ## covariaveis de sitio
       todas_sp_Morais,## a id de todas as especies de peixes
       especie,## id das especies analisadas
