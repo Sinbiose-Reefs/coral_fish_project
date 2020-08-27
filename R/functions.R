@@ -10,7 +10,7 @@ barplot_function <- function (df1,df2) {
                              nchar (as.character(unique(df1$eventID)))-3,
                              nchar(as.character(unique(df1$eventID)))))),
     xlab="Year",col="green",main="Number of eventIDs per year",
-    space=1.2,ylim=c(0,30
+    space=1.2,ylim=c(0,60
     ))
   
   barplot(
