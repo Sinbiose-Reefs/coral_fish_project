@@ -24,6 +24,22 @@ require(abind)
 ## pacote para ler os resultados dos modelos de ocupacao
 require(jagsUI)
 
-## para bipartite
-require(bipartite)
+### 
+## pacotes para vizinhanca
+require(rgdal)
+require(raster)
+require(rgeos)
+require (spdep) 
+require(maps)
+
+## pacote para processamento paralelo
+require(parallel)
+
+# pacote para chamar o winbugs
+require(R2WinBUGS)
+
+# funcoes diversas (padronizacao)
+require(vegan)
+
+
 
