@@ -1,0 +1,39 @@
+
+
+model{
+
+    ## priors 
+    # CAR prior distribution for spatial random effects:
+    rho[1:nsite] ~ car.normal(adj[], weights[], num[], tau)
+        
+    # hyperprior of rho 
+    vrho ~ dnorm(0, 0.5) I(0,)
+    tau  <- 1/vrho
+    
+    # regression parameters
+    b0 ~ dnorm(0,1.0E-2)
+    c0 ~ dnorm(0,1.0E-2)
+    c1 ~ dnorm(0,1.0E-2)
+
+
+   ## likelihood
+   for(i in 1:nsite) {
+     
+      ## cover dataset 
+      C[i] ~ dbeta(p[i],q[i])
+      p[i] <- mu[i]*phi[i]
+      q[i] <- (1-mu[i])*phi[i] ## or alternative parameterization: phi[i]-mu.s[i]*phi[i]
+
+      # model for average cover
+      logit(mu0[i])<- b0 + rho[i]
+      # keep cover on the track
+      mu[i]<-max(0.00001,min(0.99999, mu0[i]))
+
+      # precision model
+      phi[i] <-exp(c0 + c1*nvideos[i])
+
+     } ## close site loop
+
+
+}
+  
