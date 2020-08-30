@@ -222,13 +222,13 @@ cat("
     # number of sites per species 
     for (k in 1:nspec) {
       n.spp[k] <- sum(z[,k])
-      n.spp.mu[k] <- sum (psi[,k])
+      n.spp.mu[k] <- sum(psi[,k])
     }
 
     # mean detection probabability
     meanP <- mean(p[])
-    meanPsi <- mean (psi[])
-    meanZ <- mean(z[])
+    meanPsi <- mean(psi[,])
+    meanZ <- mean(z[,])
 }
     ",fill = TRUE)
 
@@ -241,11 +241,11 @@ sink()
 # MCMC settings
 # common to all datasets
 
-ni <- 50000
+ni <- 100000
 nt <- 10
-nb <- 40000
+nb <- 90000
 nc <- 3
-na <- 3000
+na <- 50000
 
 #############################################
 ############### load data
@@ -502,7 +502,7 @@ samples_dbin_bern <- bugs(data = win.data, parameters.to.save = params,
                          n.burnin = nb, 
                          DIC = T,
                          bugs.directory = "C:/Program Files (x86)/winbugs14_unrestricted/WinBUGS14",
-                         debug=F) ## you don't need close manually if debug = F 
+                         debug=T) ## you don't need close manually if debug = F 
   
   
 
