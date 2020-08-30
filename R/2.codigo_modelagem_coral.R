@@ -1,6 +1,11 @@
-﻿
+
 ## Implementação do modelo de ocupação de sítios
 ## aplicado a espécies de corais
+
+
+### load packages
+
+source("R/packages.R")
 
 ### na parte superior do codigo tem codigos dos modelos em linguagem BUGS
 ## tem 1 modelo
@@ -16,93 +21,231 @@
 
 ### PARTE SUPERIOR
 
+### HELP HERE
+
+#  https://arxiv.org/pdf/1201.2375.pdf
+# https://www.ime.usp.br/~sferrari/beta.pdf
+# https://core.ac.uk/reader/11056214
+# http://www.biometrica.tomsk.ru/lib/kery.pdf
+
+
 # BUGS model
-sink(here ("bugs","StaticCARModel_coral.txt"))
+sink(here ("bugs","StaticCARModel_coral_dbeta_comm.txt"))
 
 cat("
 
-model {
+model{
 
-  # prior for detection probability
-	p ~ dunif(0, 1)
-
-  # prior for occupancy submodel
-  beta0 ~ dunif (0,1)
-  intercept.psi <- logit(beta0)
-    
-  # CAR prior distribution for spatial random effects:
-  rho[1:nsite] ~ car.normal(adj[], weights[], num[], tau)
-  
-  # hyperprior of rho 
-  vrho ~ dnorm(0, 0.5) I(0,)
-  tau  <- 1/vrho
-  
-  # Ecological submodel: Define state conditional on parameters
-	
-  for(i in 1:nsite){
-	
-		z [i] ~ dbern(psi[i])
-		
-		## This keeps the program on the track
-    psi[i]<-max(0.00001,min(0.99999, psi0[i]))
-    w[i] ~ dbern(psi[i])
-               
-		logit(psi0 [i]) <- intercept.psi + rho [i]
-	
-	}
-	
-	# Observation submodel: detection conditional on true site-occupancy
-		
-	for (k in 1:nobs) { 		## loop over replicated surveys
-		      
-	   y [k] ~ dbern(muY[site[k], occa[k]])
-		 muY [site[k], occa[k]] <- z[site[k]] * p
-			    
-	}
-
-  # Derived parameters: Sample and population occupancy, growth rate and turnover
-  n.occ <- sum(z[])#/M
-  mutot <- sum(psi[])
+    ## priors 
+    # CAR prior distribution for spatial random effects:
+    for (k in 1:nspec) {
+       rho[k,1:nsite] ~ car.normal(adj[], weights[], num[], spacetau[k])
+       # hyperprior of rho 
+       spacesigma[k] ~ dunif(0,5)
+       spacetau[k]  <- 1/(spacesigma[k]*spacesigma[k])
+    }
     
 
-} 
+    # hyperprior of rho 
+    
+    # regression parameters
+    for (k in 1:nspec) {
+       b0 [k]~ dnorm(0,1.0E-2)
+       c0 [k]~ dnorm(0,1.0E-2)
+       c1 [k]~ dnorm(0,1.0E-2)
+   }
+
+   ## likelihood
+   for(k in 1:nspec) {
+      for(i in 1:nsite) {
+   
+         ## cover dataset 
+         C[i,k] ~ dbeta(p[i,k],q[i,k])
+         p[i,k] <- mu[i,k]*phi[i,k]
+         q[i,k] <- (1-mu[i,k])*phi[i,k] 
+         ## or an alternative parameterization: phi[i]-mu.s[i]*phi[i]
+
+         # model for average cover
+         mu0[i,k]<- b0[k] + rho[k,i]
+
+         # keep cover on the track
+         mu.lim[i,k] <- min(10,max(-10,mu0[i,k]))
+         logit(mu[i,k]) <- mu.lim[i,k]
+
+         # precision model
+         phi[i,k] <-exp(c0[k] + c1[k]*nvideos[i])
+
+         } ## close site loop
+      } ## close spp loop
+
+  # derived parameters
+  # MEAN COVER per species
+  for (k in 1:nspec) {
+     meanCov [k] <- mean(p[,k]) 
+  }
+
+  # total cover per site
+  for (i in 1:nsite) {
+     totCov [i] <- sum(p[i,]) 
+  }
+  
+  # MEAN COVER per species (mu)
+  for (k in 1:nspec) {
+    meanCovmu [k] <- mean(mu[,k]) 
+  }
+
+  # total cover per site (considering mu)
+  for (i in 1:nsite) {
+    totCovmu [i] <- sum(mu[i,]) 
+  }
+
+}
   ",fill = TRUE)
+
+sink()
+
+### binomial model
+sink(here ("bugs","StaticCARModel_coral_dbin_comm.txt"))
+
+cat("
+    
+    model{
+    
+    ## priors 
+    # CAR prior distribution for spatial random effects:
+   ## priors 
+    for (k in 1:nspec) {
+    # CAR prior distribution for spatial random effects:
+       rho[k,1:nsite] ~ car.normal(adj[], weights[], num[], spacetau[k])
+       # hyperprior of rho 
+       spacesigma[k] ~ dunif(0,5)
+       spacetau[k]  <- 1/(spacesigma[k]*spacesigma[k])
+    }
+    
+    
+    # regression parameters
+    for (k in 1:nspec) {
+        b0[k] ~ dunif(-10,10)
+    }
+
+    ## likelihood
+    for (k in 1:nspec) {
+       for(i in 1:nsite) {
+    
+          ## cover dataset 
+          C[i,k] ~ dbin(p[i,k],N[i]) ## N is constant over sites
+          
+          # model for p
+          mup[i,k] <- b0[k] + rho[k,i]
+          mup.lim[i,k] <- min(10,max(-10,mup[i,k]))
+          logit(p[i,k]) <- mup.lim[i,k]
+       }
+    }
+    
+   # derived parameters
+   # mean probability per species
+   for (k in 1:nspec) {
+      meanP [k] <- mean(p[,k]) 
+   }
+
+   # number of sites per species
+   for (k in 1:nspec) {
+      nSiteP [k] <- sum(p[,k]) 
+   }
+
+   # expected number of species per site
+   for (i in 1:nsite) {
+      totSp [i] <- sum(p[i,]) 
+   }
+
+   # mean number of species per site
+   for (i in 1:nsite) {
+      meanSp [i] <- mean(p[i,]) 
+   }
+
+}
+    ",fill = TRUE)
+
+sink()
+
+# binomial bernoulli model
+
+### binomial model
+sink(here ("bugs","StaticCARModel_coral_dbin_bern_comm.txt"))
+
+cat("
+    
+    model{
+    
+    ## priors 
+    for (k in 1:nspec) {
+       # CAR prior distribution for spatial random effects:
+       rho[k,1:nsite] ~ car.normal(adj[], weights[], num[], spacetau[k])
+       # hyperprior of rho 
+       spacesigma[k] ~ dunif(0,5)
+       spacetau[k]  <- 1/(spacesigma[k]*spacesigma[k])
+    }
+
+    
+    # regression parameters
+    for (k in 1:nspec) {
+       b0[k] ~ dunif(-10,10)
+       ## detection probability
+       p[k] ~ dunif (0,1)
+    }
+    
+    ## likelihood
+    for (k in 1:nspec) { # for each species
+       for(i in 1:nsite) { # for each site
+          ## occupancy model
+          z [i,k] ~ dbern (psi[i,k])
+
+          mu[i,k] <- b0[k] + rho[k,i]
+          mu.lim[i,k] <- min(10,max(-10,mu[i,k]))
+          logit(psi[i,k]) <- mu.lim[i,k]
+
+          ## observation model 
+          C[i,k] ~ dbin(p.eff[i,k],N[i])
+          p.eff[i,k] <- p[k] * z[i,k]
+       
+          }## close site loop
+       } ## close species loop
+
+   
+    # Derived parameters
+    # number of species per site (finite sample size)
+    for (i in 1:nsite) {
+      n.occ [i] <- sum(z[i,]) 
+      mutot [i] <- sum(psi[i,])
+    }
+    
+    # number of sites per species 
+    for (k in 1:nspec) {
+      n.spp[k] <- sum(z[,k])
+      n.spp.mu[k] <- sum (psi[,k])
+    }
+
+    # mean detection probabability
+    meanP <- mean(p[])
+    meanPsi <- mean (psi[])
+    meanZ <- mean(z[])
+}
+    ",fill = TRUE)
 
 sink()
 
 ########################################
 
-#### PARTE DO MEIO
-
-### load packages
-
-source("R/packages_model_coral.R")
-
-## Parameters to monitor
-  
-params <- c(
-  
-  ### detection parameters
-  "p",
-  
-  ### occupancy parameters
-  "z","psi",
-  "beta0","intercept.psi",
-   "rho","tau", "vrho",
- 
- ## derived par
- "mutot",
- "n.occ"
-  
-)
+#### PARTE DO MEIO (Modelos)
 
 # MCMC settings
-ni <- 100000
-nt <- 100
-nb <- 80000
-nc <- 3
-na <- 60000
+# common to all datasets
 
+ni <- 50000
+nt <- 10
+nb <- 40000
+nc <- 3
+na <- 3000
 
 #############################################
 ############### load data
@@ -113,69 +256,62 @@ load (here ("output", "Data_coral_detection.RData"))
 # Generate several  neighbours for sensitivity analyses
 coord <- coordenadas [,c("Lon","Lat")]
 coordinates(coord) <- ~ Lon + Lat
+crs(coord) <- "+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0"
 
 ## d1=0; d2 varying as (c(3,6,9,12,15,18,21,24))
 
-neigh_winnb <- lapply (as.list(c(3,6,9,12,15,18,21,24)), function (i)  {
- 
- #create neighborhood
- neigh <- dnearneigh((coord), 0, i)
- # Number of neighbours
- table(card(neigh))
- # Convert the neighbourhood
- winnb <- nb2WB(neigh)
- 
- ; # return
- 
- winnb
- 
- }
-)
+#neigh_winnb <- lapply (as.list(c(3,6,9,12,15,18,21,24)), function (i)  {
+nei<-6
+#create neighborhood
+neigh <- dnearneigh((coord), 0, nei)
+# Number of neighbours
+table(card(neigh))
+# Convert the neighbourhood
+winnb <- nb2WB(neigh)
 
-################################
-## parallel-processing settings
-cl <- makeCluster(3) ## number of cores = generally ncores -1
+###############################
+## model to estimate coral cover
 
-# exportar pacote para os cores
-clusterEvalQ(cl, library(R2WinBUGS))
-clusterEvalQ(cl, library(here))
+## calcular a cobertura (soma dos videos)
+cover_data <- apply(arranjo_corais,c(1,3),mean,na.rm=T)
+## as dbeta can not deal with 0's and 1', I transformed zeros into very small numbers
+cover_data <- ifelse (cover_data == 0, 0.000000000000001,cover_data)
 
-# export your data and function
-clusterExport(cl, c("df_coral_data",
-                    "neigh_winnb",
-                    "ni","nt","nb","nc","na",
-                    "params"))
+# standardize number of videos  
+std_videos <- (rowSums(is.na(arranjo_corais[,,1])!=T) - mean(rowSums(is.na(arranjo_corais[,,1])!=T)))/
+  sd(rowSums(is.na(arranjo_corais[,,1])!=T))
+str(win.data<- list(C =  cover_data,# i[,"y"], 
+                    nspec = ncol (cover_data),
+                    nsite = nrow (cover_data),
+                    nvideos = std_videos,
+                    num = winnb$num, 
+                    adj = winnb$adj, 
+                    weights = winnb$weights
+                    ))
 
-samples_coral <- parLapply (cl, neigh_winnb, function (k)  ## for each distance of neighborhood
+## inits for the spatial factor
+inits <- function(){list(
+  b0 = runif (20,-10,10),
+  c0 = runif (20,-10,10),
+  c1 = runif (20,-10,10)
+  #rho = matrix (0, nrow=20,ncol=48)
+  )} #rep(0, win.data$nsite)
+                           
+# run winbugs
+## Parameters to monitor
   
-                    lapply (df_coral_data, function (i) { ## for each coral species
-      
+params <- c(
+  ### cover-model parameters
+    "meanCov","totCov","meanCovmu","totCovmu",
+    "b0","c0","c1",
+    "mu","p","q","spacesigma",
+    "spacetau", "rho"
+    )
   
-  #i= df_coral_data[[4]]
-  
-  str(win.data<- list(y=  i[,"y"], 
-                    nsite = max (i[,"M"]),
-                    nobs = nrow (i),
-                    site = i[,"M"],
-                    occa = i[,"J"],
-                    num = k$num, 
-                    adj = k$adj, 
-                    weights = k$weights))
-
-  # Observed occurrence as inits for z
-  zst <- aggregate (i[,"y"] , 
-                  list (i[,"M"]),
-                  FUN=max)$x
-  
-  ## inits
-  inits <- function(){list(z = zst, 
-                         rho = rep(0, win.data$nsite))}
-  
-  # run winbugs
-
-  samples <- bugs(data = win.data, parameters.to.save = params, 
-                model.file = here ("bugs","StaticCARModel_coral.txt"), 
-                inits = inits,
+## call and run winBUGS  
+samples <- bugs(data = win.data, parameters.to.save = params, 
+                model.file = here ("bugs","StaticCARModel_coral_dbeta_comm.txt"), 
+                inits = NULL,
                 n.chains = nc, 
                 n.thin = nt, 
                 n.iter = ni, 
@@ -184,14 +320,212 @@ samples_coral <- parLapply (cl, neigh_winnb, function (k)  ## for each distance 
                 bugs.directory = "C:/Program Files (x86)/winbugs14_unrestricted/WinBUGS14",
                 debug=F) ## you don't need close manually if debug = F 
 
+save (samples,file=here("output", "StaticCARModel_coral_dbeta_comm.RData"))  
   
-  ; samples
   
-  }
+####
   
+# binomial model used to estimate the probability of finding a cover higher than 1% 
+# relative to total coral cover 
+
+# maximum cover a species could reach
+tot_cover <- rep(100,48) # apply (arranjo_corais,c(1,3),max, na.rm=T)
+#tot_cover <- ifelse (rowSums (tot_cover)>1,1, rowSums (tot_cover))
+## subset dos sitios com cibertura de coral > 0 
+#coral_sites <- which( tot_cover >0)
+# select 
+#tot_cover <- tot_cover [coral_sites]
+# focal species data 
+local_data <- apply(arranjo_corais,c(1,3),max,na.rm=T)*100
+  
+##  subset of space (as we can't analyze sites with no coral cover)
+#neigh_winnb <- lapply (as.list(c(3,6,9,12,15,18,21,24)), function (i)  {
+#create neighborhood
+#neigh <- dnearneigh((coord[coral_sites,]), 0, nei)
+# Number of neighbours
+#table(card(neigh))
+# Convert the neighbourhood
+#winnb <- nb2WB(neigh)
+
+## bundle data
+str(win.data<- list(C =  local_data,# i[,"y"], 
+                      nsite = nrow(local_data),
+                    nspec = ncol (local_data),
+                      N = tot_cover,
+                      num = winnb$num, 
+                      adj = winnb$adj, 
+                      weights = winnb$weights
 ))
   
-stopCluster(cl)
+  
+## inits
+inits <- function(){list(
+    rho = rep(0, win.data$nsite)
+  )}
+  
+# run winbugs
+params <- c(
+    ### binomial model parameters
+  "totSp","meanP", "nSiteP", "meanSp",
+   "b0", "p","spacesigma",
+    "spacetau", "rho"
+    
+  )
+  
+samples_dbinV1 <- bugs(data = win.data, parameters.to.save = params, 
+                  model.file = here ("bugs","StaticCARModel_coral_dbin_comm.txt"), 
+                  inits = NULL,
+                  n.chains = nc, 
+                  n.thin = nt, 
+                  n.iter = ni, 
+                  n.burnin = nb, 
+                  DIC = T,
+                  bugs.directory = "C:/Program Files (x86)/winbugs14_unrestricted/WinBUGS14",
+                  debug=F) ## you don't need close manually if debug = F 
+  
+save (samples_dbinV1,file=here("output", "StaticCARModel_coral_dbin_commV1.RData"))
+
+
+# binomial model V2: nesta versao da mesma estrutura do modelo anterior, estimamos a probabilidade de ao menos uma deteccao
+# em relacao ao numero de videos alocados em um dado sitio
+  
+## encontrar o numero de videos ( constante entre spp )
+nvideos <- rowSums (is.na(arranjo_corais [,,1])!=T )
+
+## numero observado de deteccoes da especie
+local_data <- lapply (seq(1,dim(arranjo_corais)[3]), function (i) 
+  rowSums (arranjo_corais [,,i]>0,na.rm=T)
+  )
+local_data<- do.call(cbind,local_data)
+#create neighborhood
+neigh <- dnearneigh((coord), 0, nei)
+# Number of neighbours
+table(card(neigh))
+# Convert the neighbourhood
+winnb <- nb2WB(neigh)
+
+# bundle data
+str(win.data<- list(C =  local_data,
+                      nsite = nrow(local_data),
+                      nspec= ncol(local_data),
+                      N = nvideos,
+                      num = winnb$num, 
+                      adj = winnb$adj, 
+                      weights = winnb$weights
+  ))
+  
+## inits
+inits <- function(){list(
+    rho = matrix(0, win.data$nspec,win.data$nsite)
+  )}
+  
+# parameters to monitor
+params <- c(
+    ### binomial regression parameters
+    "meanP","totSp","nSiteP", "meanSp",
+    "b0",
+    "p","spacesigma",
+    "spacetau", "rho"
+    
+  )
+
+# call and run winbugs  
+samples_dbinV2 <- bugs(data = win.data, parameters.to.save = params, 
+                  model.file = here ("bugs","StaticCARModel_coral_dbin_comm.txt"), 
+                  inits = NULL,
+                  n.chains = nc, 
+                  n.thin = nt, 
+                  n.iter = ni, 
+                  n.burnin = nb, 
+                  DIC = T,
+                  bugs.directory = "C:/Program Files (x86)/winbugs14_unrestricted/WinBUGS14",
+                  debug=F) ## you don't need close manually if debug = F 
+  
+save (samples_dbinV2,file=here("output", "StaticCARModel_coral_dbin_commV2.RData"))  
+
+## 
+## V3
+# binomial - bernoulli model, where the detection is a binomial process, with p dependent on Nvideos,
+# and occupancy is a bernoulli process, depending on site spatial neighborhood
+  
+# the number of videos per site
+
+nvideos <- rowSums (is.na(arranjo_corais [,,1])!=T )
+## finding the number of detections
+local_data <- do.call (cbind,lapply (seq (1,20), function (i)
+  rowSums (arranjo_corais[,,i] >0,na.rm=T)
+))
+
+## spatial neighborhood
+#create neighborhood
+neigh <- dnearneigh((coord), 0, nei)
+# Number of neighbours
+table(card(neigh))
+# Convert the neighbourhood
+winnb <- nb2WB(neigh)
+
+## bundle data  
+str(win.data<- list(C =  local_data,# i[,"y"], 
+                      nsite = nrow(local_data),
+                      N = nvideos,
+                      nspec = ncol(local_data), 
+                      num = winnb$num, 
+                      adj = winnb$adj, 
+                      weights = winnb$weights
+  ))
+  
+## inits
+#zst <- ifelse (local_data>0,1,0) 
+#inits <- function(){list(
+#    z=zst,
+#    rho = rep(0, win.data$nsite)
+#  )}
+  
+# parameters to monitor
+params <- c(
+    
+    ### bern-bin model
+    "p","z","psi",  "meanP", "meanPsi", 
+    "meanZ", "n.spp.mu", "mutot",
+    "b0",
+    "spacetau", "spacesigma","rho"
+    
+  )
+
+## call and run bugs  
+samples_dbin_bern <- bugs(data = win.data, parameters.to.save = params, 
+                         model.file = here ("bugs","StaticCARModel_coral_dbin_bern_comm.txt"), 
+                         inits = NULL,
+                         n.chains = nc, 
+                         n.thin = nt, 
+                         n.iter = ni, 
+                         n.burnin = nb, 
+                         DIC = T,
+                         bugs.directory = "C:/Program Files (x86)/winbugs14_unrestricted/WinBUGS14",
+                         debug=F) ## you don't need close manually if debug = F 
+  
+  
+
+save (samples_dbin_bern,file=here("output", "StaticCARModel_coral_dbin_bern_comm.RData"))  
+
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  #; samples
+  
+  #}
+  
+#))
+  
+#stopCluster(cl)
   
 save (samples_coral, file=here ("output", "samples_coral_CARModel.RData"))
   
