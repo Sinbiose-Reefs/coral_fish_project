@@ -20,8 +20,8 @@
     }
     
     ## likelihood
-    for (k in 1:nspec) {
-       for(i in 1:nsite) {
+    for (k in 1:nspec) { # for each species
+       for(i in 1:nsite) { # for each site
           ## occupancy model
           z [i,k] ~ dbern (psi[i,k])
 
@@ -36,21 +36,23 @@
           }## close site loop
        } ## close species loop
 
-    # derived parameters
    
     # Derived parameters
     # number of species per site (finite sample size)
     for (i in 1:nsite) {
       n.occ [i] <- sum(z[i,]) 
+      mutot [i] <- sum(psi[i,])
     }
     
     # number of sites per species 
     for (k in 1:nspec) {
-      n.spp [k] <- sum(z[,k]) 
+      n.spp[k] <- sum(z[,k])
+      n.spp.mu[k] <- sum(psi[,k])
     }
 
     # mean detection probabability
     meanP <- mean(p[])
-    
-    }
+    meanPsi <- mean(psi[,])
+    meanZ <- mean(z[,])
+}
     

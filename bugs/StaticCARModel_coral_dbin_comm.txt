@@ -39,9 +39,19 @@
       meanP [k] <- mean(p[,k]) 
    }
 
+   # number of sites per species
+   for (k in 1:nspec) {
+      nSiteP [k] <- sum(p[,k]) 
+   }
+
    # expected number of species per site
    for (i in 1:nsite) {
       totSp [i] <- sum(p[i,]) 
+   }
+
+   # mean number of species per site
+   for (i in 1:nsite) {
+      meanSp [i] <- mean(p[i,]) 
    }
 
 }

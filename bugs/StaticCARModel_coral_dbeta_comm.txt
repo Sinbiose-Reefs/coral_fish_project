@@ -54,6 +54,16 @@ model{
   for (i in 1:nsite) {
      totCov [i] <- sum(p[i,]) 
   }
-    
+  
+  # MEAN COVER per species (mu)
+  for (k in 1:nspec) {
+    meanCovmu [k] <- mean(mu[,k]) 
+  }
+
+  # total cover per site (considering mu)
+  for (i in 1:nsite) {
+    totCovmu [i] <- sum(mu[i,]) 
+  }
+
 }
   
