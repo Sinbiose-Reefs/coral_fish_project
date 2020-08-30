@@ -1,0 +1,59 @@
+
+
+model{
+
+    ## priors 
+    # CAR prior distribution for spatial random effects:
+    for (k in 1:nspec) {
+       rho[k,1:nsite] ~ car.normal(adj[], weights[], num[], spacetau[k])
+       # hyperprior of rho 
+       spacesigma[k] ~ dunif(0,5)
+       spacetau[k]  <- 1/(spacesigma[k]*spacesigma[k])
+    }
+    
+
+    # hyperprior of rho 
+    
+    # regression parameters
+    for (k in 1:nspec) {
+       b0 [k]~ dnorm(0,1.0E-2)
+       c0 [k]~ dnorm(0,1.0E-2)
+       c1 [k]~ dnorm(0,1.0E-2)
+   }
+
+   ## likelihood
+   for(k in 1:nspec) {
+      for(i in 1:nsite) {
+   
+         ## cover dataset 
+         C[i,k] ~ dbeta(p[i,k],q[i,k])
+         p[i,k] <- mu[i,k]*phi[i,k]
+         q[i,k] <- (1-mu[i,k])*phi[i,k] 
+         ## or an alternative parameterization: phi[i]-mu.s[i]*phi[i]
+
+         # model for average cover
+         mu0[i,k]<- b0[k] + rho[k,i]
+
+         # keep cover on the track
+         mu.lim[i,k] <- min(10,max(-10,mu0[i,k]))
+         logit(mu[i,k]) <- mu.lim[i,k]
+
+         # precision model
+         phi[i,k] <-exp(c0[k] + c1[k]*nvideos[i])
+
+         } ## close site loop
+      } ## close spp loop
+
+  # derived parameters
+  # MEAN COVER per species
+  for (k in 1:nspec) {
+     meanCov [k] <- mean(p[,k]) 
+  }
+
+  # total cover per site
+  for (i in 1:nsite) {
+     totCov [i] <- sum(p[i,]) 
+  }
+    
+}
+  
