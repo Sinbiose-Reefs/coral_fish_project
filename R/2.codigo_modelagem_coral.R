@@ -30,7 +30,7 @@ source("R/packages.R")
 
 
 # BUGS model
-sink(here ("bugs","StaticCARModel_coral_dbeta_comm.txt"))
+sink(here ("bugs","StaticCARModel_coral_dbeta_comm_GOF.txt"))
 
 cat("
 
@@ -53,7 +53,7 @@ model{
        b0 [k]~ dnorm(0,1.0E-2)
        c0 [k]~ dnorm(0,1.0E-2)
        c1 [k]~ dnorm(0,1.0E-2)
-   }
+    }
 
    ## likelihood
    for(k in 1:nspec) {
@@ -62,21 +62,37 @@ model{
          ## cover dataset 
          C[i,k] ~ dbeta(p[i,k],q[i,k])
          p[i,k] <- mu[i,k]*phi[i,k]
-         q[i,k] <- (1-mu[i,k])*phi[i,k] 
+         q[i,k] <- (1-mu[i,k])*phi[i,k]  # phi[i,k]-mu[i,k]*phi[i,k]
          ## or an alternative parameterization: phi[i]-mu.s[i]*phi[i]
 
          # model for average cover
          mu0[i,k]<- b0[k] + rho[k,i]
-
-         # keep cover on the track
          mu.lim[i,k] <- min(10,max(-10,mu0[i,k]))
          logit(mu[i,k]) <- mu.lim[i,k]
 
          # precision model
-         phi[i,k] <-exp(c0[k] + c1[k]*nvideos[i])
+         phi[i,k] <- exp(c0[k] + c1[k]*nvideos[i])
 
          } ## close site loop
       } ## close spp loop
+
+    # Assess model fit using a sums-of-squares-type discrepancy
+    for (k in 1:nspec) {
+       for (i in 1:nsite) {
+          residual[i,k] <- C[i,k]-p[i,k] # Residuals for observed data
+          predicted[i,k] <- p[i,k] # Predicted values
+          sq[i,k] <- pow(residual[i,k], 2) # Squared residuals for observed data
+    
+          # Generate replicate data and compute fit stats for them
+          C.new[i,k] ~ dbeta(mu[i,k],q[i,k]) # one new data set at each MCMC iteration
+          sq.new[i,k] <- pow(C.new[i,k]-predicted[i,k], 2) # Squared residuals for new data
+       }
+
+       fit[k] <- sum(sq[,k]) # Sum of squared residuals for actual data set
+       fit.new[k] <- sum(sq.new[,k]) # Sum of squared residuals for new data set
+       test[k] <- step(fit.new[k] - fit[k]) # Test whether new data set more extreme
+       bpvalue[k] <- mean(test[k]) # Bayesian p-value
+    }
 
   # derived parameters
   # MEAN COVER per species
@@ -105,7 +121,7 @@ model{
 sink()
 
 ### binomial model
-sink(here ("bugs","StaticCARModel_coral_dbin_comm.txt"))
+sink(here ("bugs","StaticCARModel_coral_dbin_comm_GOF.txt"))
 
 cat("
     
@@ -142,6 +158,23 @@ cat("
        }
     }
     
+   # Assess model fit using a sums-of-squares-type discrepancy
+   for (k in 1:nspec) {
+      for (i in 1:nsite) {
+         residual[i,k] <- C[i,k]-p[i,k] # Residuals for observed data
+         predicted[i,k] <- p[i,k] # Predicted values
+         sq[i,k] <- pow(residual[i,k], 2) # Squared residuals for observed data
+    
+         # Generate replicate data and compute fit stats for them
+         C.new[i,k] ~ dbin(p[i,k], N[i]) # one new data set at each MCMC iteration
+         sq.new[i,k] <- pow(C.new[i,k]-predicted[i,k], 2) # Squared residuals for new data
+      }
+      fit[k] <- sum(sq[,k]) # Sum of squared residuals for actual data set
+      fit.new[k] <- sum(sq.new[,k]) # Sum of squared residuals for new data set
+      test[k] <- step(fit.new[k] - fit[k]) # Test whether new data set more extreme
+      bpvalue[k] <- mean(test[k]) # Bayesian p-value
+   }
+
    # derived parameters
    # mean probability per species
    for (k in 1:nspec) {
@@ -171,7 +204,7 @@ sink()
 # binomial bernoulli model
 
 ### binomial model
-sink(here ("bugs","StaticCARModel_coral_dbin_bern_comm.txt"))
+sink(here ("bugs","StaticCARModel_coral_dbin_bern_comm_GOF.txt"))
 
 cat("
     
@@ -211,7 +244,23 @@ cat("
           }## close site loop
        } ## close species loop
 
-   
+    # Assess model fit using a sums-of-squares-type discrepancy
+    for (k in 1:nspec) {
+       for (i in 1:nsite) {
+          residual[i,k] <- C[i,k]-psi[i,k] # Residuals for observed data
+          predicted[i,k] <- psi[i,k] # Predicted values
+          sq[i,k] <- pow(residual[i,k], 2) # Squared residuals for observed data
+    
+          # Generate replicate data and compute fit stats for them
+          C.new[i,k] ~ dbin(p.eff[i,k],N[i]) # one new data set at each MCMC iteration
+          sq.new[i,k] <- pow(C.new[i,k]-predicted[i,k], 2) # Squared residuals for new data
+       }
+       fit[k] <- sum(sq[,k]) # Sum of squared residuals for actual data set
+       fit.new[k] <- sum(sq.new[,k]) # Sum of squared residuals for new data set
+       test[k] <- step(fit.new[k] - fit[k]) # Test whether new data set more extreme
+       bpvalue[k] <- mean(test[k]) # Bayesian p-value
+    }
+    
     # Derived parameters
     # number of species per site (finite sample size)
     for (i in 1:nsite) {
@@ -241,11 +290,11 @@ sink()
 # MCMC settings
 # common to all datasets
 
-ni <- 100000
+ni <- 50000
 nt <- 10
-nb <- 90000
+nb <- 40000
 nc <- 3
-na <- 50000
+na <- 30000
 
 #############################################
 ############### load data
@@ -275,11 +324,11 @@ winnb <- nb2WB(neigh)
 ## calcular a cobertura (soma dos videos)
 cover_data <- apply(arranjo_corais,c(1,3),mean,na.rm=T)
 ## as dbeta can not deal with 0's and 1', I transformed zeros into very small numbers
-cover_data <- ifelse (cover_data == 0, 0.000000000000001,cover_data)
+cover_data <- ifelse (cover_data == 0, 0.00001,cover_data)
 
 # standardize number of videos  
-std_videos <- (rowSums(is.na(arranjo_corais[,,1])!=T) - mean(rowSums(is.na(arranjo_corais[,,1])!=T)))/
-  sd(rowSums(is.na(arranjo_corais[,,1])!=T))
+nvideos <- rowSums(is.na(arranjo_corais[,,1])!=T)
+std_videos <- (nvideos-mean(nvideos))/sd(nvideos)
 str(win.data<- list(C =  cover_data,# i[,"y"], 
                     nspec = ncol (cover_data),
                     nsite = nrow (cover_data),
@@ -291,7 +340,7 @@ str(win.data<- list(C =  cover_data,# i[,"y"],
 
 ## inits for the spatial factor
 inits <- function(){list(
-  b0 = runif (20,-10,10),
+  b0 = runif (20,-10,10),#runif (20,-10,10)
   c0 = runif (20,-10,10),
   c1 = runif (20,-10,10)
   #rho = matrix (0, nrow=20,ncol=48)
@@ -302,15 +351,16 @@ inits <- function(){list(
   
 params <- c(
   ### cover-model parameters
+    "bpvalue", "fit","fit.new","test",
     "meanCov","totCov","meanCovmu","totCovmu",
-    "b0","c0","c1",
+    "b0",#"c0","c1",
     "mu","p","q","spacesigma",
     "spacetau", "rho"
     )
   
 ## call and run winBUGS  
 samples <- bugs(data = win.data, parameters.to.save = params, 
-                model.file = here ("bugs","StaticCARModel_coral_dbeta_comm.txt"), 
+                model.file = here ("bugs","StaticCARModel_coral_dbeta_comm_GOF.txt"), 
                 inits = NULL,
                 n.chains = nc, 
                 n.thin = nt, 
@@ -326,7 +376,7 @@ save (samples,file=here("output", "StaticCARModel_coral_dbeta_comm.RData"))
 ####
   
 # binomial model used to estimate the probability of finding a cover higher than 1% 
-# relative to total coral cover 
+# relative to total possible cover 
 
 # maximum cover a species could reach
 tot_cover <- rep(100,48) # apply (arranjo_corais,c(1,3),max, na.rm=T)
@@ -350,7 +400,7 @@ local_data <- apply(arranjo_corais,c(1,3),max,na.rm=T)*100
 ## bundle data
 str(win.data<- list(C =  local_data,# i[,"y"], 
                       nsite = nrow(local_data),
-                    nspec = ncol (local_data),
+                      nspec = ncol (local_data),
                       N = tot_cover,
                       num = winnb$num, 
                       adj = winnb$adj, 
@@ -366,6 +416,7 @@ inits <- function(){list(
 # run winbugs
 params <- c(
     ### binomial model parameters
+  "bpvalue", "fit","fit.new","test",
   "totSp","meanP", "nSiteP", "meanSp",
    "b0", "p","spacesigma",
     "spacetau", "rho"
@@ -373,7 +424,7 @@ params <- c(
   )
   
 samples_dbinV1 <- bugs(data = win.data, parameters.to.save = params, 
-                  model.file = here ("bugs","StaticCARModel_coral_dbin_comm.txt"), 
+                  model.file = here ("bugs","StaticCARModel_coral_dbin_comm_GOF.txt"), 
                   inits = NULL,
                   n.chains = nc, 
                   n.thin = nt, 
@@ -384,7 +435,6 @@ samples_dbinV1 <- bugs(data = win.data, parameters.to.save = params,
                   debug=F) ## you don't need close manually if debug = F 
   
 save (samples_dbinV1,file=here("output", "StaticCARModel_coral_dbin_commV1.RData"))
-
 
 # binomial model V2: nesta versao da mesma estrutura do modelo anterior, estimamos a probabilidade de ao menos uma deteccao
 # em relacao ao numero de videos alocados em um dado sitio
@@ -422,6 +472,7 @@ inits <- function(){list(
 # parameters to monitor
 params <- c(
     ### binomial regression parameters
+  "bpvalue", "fit","fit.new","test",
     "meanP","totSp","nSiteP", "meanSp",
     "b0",
     "p","spacesigma",
@@ -431,7 +482,7 @@ params <- c(
 
 # call and run winbugs  
 samples_dbinV2 <- bugs(data = win.data, parameters.to.save = params, 
-                  model.file = here ("bugs","StaticCARModel_coral_dbin_comm.txt"), 
+                  model.file = here ("bugs","StaticCARModel_coral_dbin_comm_GOF.txt"), 
                   inits = NULL,
                   n.chains = nc, 
                   n.thin = nt, 
@@ -443,8 +494,71 @@ samples_dbinV2 <- bugs(data = win.data, parameters.to.save = params,
   
 save (samples_dbinV2,file=here("output", "StaticCARModel_coral_dbin_commV2.RData"))  
 
-## 
-## V3
+## V3 rounded cover
+# binomial model used to estimate the probability of finding a cover higher than 1% 
+# relative to total coral cover 
+
+# maximum cover a species could reach
+tot_coral_cover <- apply (arranjo_corais,c(1,3),max, na.rm=T)*100
+tot_coral_cover <- rowSums (tot_coral_cover)
+tot_coral_cover <- ifelse ((tot_coral_cover)>100,100,  (tot_coral_cover))
+
+## subset dos sitios com cibertura de coral > 0 
+coral_sites <- which( tot_coral_cover >0)
+# select 
+tot_coral_cover <- tot_coral_cover [coral_sites]
+# focal species data 
+local_data <- apply(arranjo_corais,c(1,3),mean,na.rm=T)*100
+local_data <- local_data [coral_sites,]
+
+##  subset of space (as we can't analyze sites with no coral cover)
+#create neighborhood
+neigh <- dnearneigh((coord[coral_sites,]), 0, nei)
+# Number of neighbours
+table(card(neigh))
+# Convert the neighbourhood
+winnb <- nb2WB(neigh)
+
+## bundle data
+str(win.data<- list(C =  local_data,# i[,"y"], 
+                    nsite = nrow(local_data),
+                    nspec = ncol (local_data),
+                    N = tot_coral_cover,
+                    num = winnb$num, 
+                    adj = winnb$adj, 
+                    weights = winnb$weights
+))
+
+
+## inits
+inits <- function(){list(
+  rho = rep(0, win.data$nsite)
+)}
+
+# run winbugs
+params <- c(
+  ### binomial model parameters
+  "bpvalue", "fit","fit.new","test",
+  "totSp","meanP", "nSiteP", "meanSp",
+  "b0", "p","spacesigma",
+  "spacetau", "rho"
+  
+)
+
+samples_dbinV3 <- bugs(data = win.data, parameters.to.save = params, 
+                       model.file = here ("bugs","StaticCARModel_coral_dbin_comm_GOF.txt"), 
+                       inits = NULL,
+                       n.chains = nc, 
+                       n.thin = nt, 
+                       n.iter = ni, 
+                       n.burnin = nb, 
+                       DIC = T,
+                       bugs.directory = "C:/Program Files (x86)/winbugs14_unrestricted/WinBUGS14",
+                       debug=F) ## you don't need close manually if debug = F 
+
+save (samples_dbinV3,file=here("output", "StaticCARModel_coral_dbin_commV3.RData"))
+
+## V4
 # binomial - bernoulli model, where the detection is a binomial process, with p dependent on Nvideos,
 # and occupancy is a bernoulli process, depending on site spatial neighborhood
   
@@ -473,20 +587,14 @@ str(win.data<- list(C =  local_data,# i[,"y"],
                       adj = winnb$adj, 
                       weights = winnb$weights
   ))
-  
-## inits
-#zst <- ifelse (local_data>0,1,0) 
-#inits <- function(){list(
-#    z=zst,
-#    rho = rep(0, win.data$nsite)
-#  )}
-  
+ 
 # parameters to monitor
 params <- c(
     
     ### bern-bin model
+  "bpvalue", "fit","fit.new","test",
     "p","z","psi",  "meanP", "meanPsi", 
-    "meanZ", "n.spp.mu", "mutot",
+    "meanZ", "n.spp.mu","n.spp", "mutot","n.occ",
     "b0",
     "spacetau", "spacesigma","rho"
     
@@ -508,14 +616,71 @@ samples_dbin_bern <- bugs(data = win.data, parameters.to.save = params,
 
 save (samples_dbin_bern,file=here("output", "StaticCARModel_coral_dbin_bern_comm.RData"))  
 
+
+## maps of richness, occupancy, and uncertainty
+
+source("R/packages.R")
+
+## load data
+load (here ("output", "StaticCARModel_coral_dbeta_comm.Rdata"))
+load (here ("output", "StaticCARModel_coral_dbin_commV1.Rdata"))
+load (here ("output", "StaticCARModel_coral_dbin_commV2.Rdata"))
+load (here ("output", "StaticCARModel_coral_dbin_commV3.Rdata"))
+load (here ("output", "StaticCARModel_coral_dbin_bern_comm.Rdata"))
+
+## basic map
+# mapa mundi
+world <- ne_countries(scale = "medium", returnclass = "sf")
+
+# cortar o mapa para ver a america do Sul e parte da central
+wm <- ggplot() + 
+  geom_sf (data=world, size = 0.1, 
+           fill= "gray90",colour="gray90") +
+  coord_sf (xlim = c(-50, -28),  ylim = c(-27, 5), expand = FALSE) +
+  theme_bw() + #xlab ("Longitude")  + ylab ("Latitude") +
+  theme(panel.border = element_blank(), 
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_rect(fill = "lightcyan",#darkslategray1
+                                        colour = "lightcyan"),
+        axis.text.x = element_text(size=6),
+        axis.ticks.x=element_line(size=1),
+        axis.text.y = element_text(size=6),
+        axis.ticks.y=element_line(size=1),
+        axis.title.x = element_text(size=8),
+        axis.title.y = element_text(size=8),
+        title = element_blank()) 
+
+wm
   
+## fazer uma coluna dizendo que nao tem coral em 3 sitios
+plot_data <- data.frame(ObsRichness= rowSums(apply (arranjo_corais,c(1,3),max,na.rm=T)>0),
+                        EstRichness = rowSums(samples_dbin_bern$mean$z) )
+plot_data <- melt(plot_data)
+# coordinates
+jitter_coord <- data.frame (LonJitter = jitter (coordenadas$Lon,factor=400),
+                     LatJitter=jitter (coordenadas$Lat,factor=600))
+
+plot_data <- cbind(plot_data,
+                   rbind(jitter_coord, jitter_coord))
+
+## advise to jitter : https://stackoverflow.com/questions/52806580/pie-charts-in-geom-scatterpie-overlapping
+## pie: http://www.spectdata.com/index.php/2018/10/25/how-to-use-ggplot-to-plot-pie-charts-on-a-map/
+
+wm_pie <- wm + geom_point(aes(x=LonJitter, y=LatJitter, col = value),
+                                size=4,
+                               data = plot_data) +
+  facet_wrap( ~ variable) + 
+  scale_color_gradient2(guide="colourbar",
+                        breaks = seq (0,15,2),
+                        low="yellow", mid="green",high="darkblue", midpoint=7)
   
+wm_pie <- wm_pie + ggtitle("Original cover")+
+  xlab("Longitude") + ylab("Latitude") + 
+  theme (legend.text = element_text(size=8))
+
   
-  
-  
-  
-  
-  
+wm_pie
   
   
   
@@ -544,7 +709,6 @@ source("R/packages_model_coral.R")
 #############################################
 
 load (here ("output", "Data_coral_detection.RData"))
-load (here ("output", "samples_coral_CARModel.RData"))
 
 # Generate several  neighbours for sensitivity analyses
 coord <- coordenadas [,c("Lon","Lat")]
@@ -554,7 +718,7 @@ pdf(here("output", "implications_neigh.pdf"),onefile=T)
 # implications of different distances
 par(mfrow=c(2,4), mai=c(0,0,0,0),mar=c(1,1,1,1),lwd=0.2)
 map("world","Brazil",xlim=c(-50,-6),col="gray")
-plot(dnearneigh(x=(coord), 0, 3),coord,add=T)
+plot(dnearneigh(x=(coord), 0, 4),coord,add=T)
 title("N=3")
 map("world","Brazil",xlim=c(-50,-6),col="gray")
 plot(dnearneigh((coord), 0, 6),coord,add=T)
