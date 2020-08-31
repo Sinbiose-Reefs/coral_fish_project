@@ -17,9 +17,24 @@ model{
     # regression parameters
     for (k in 1:nspec) {
        b0 [k]~ dnorm(0,1.0E-2)
-       c0 [k]~ dnorm(0,1.0E-2)
-       c1 [k]~ dnorm(0,1.0E-2)
-   }
+       #c0 [k]~ dnorm(0,1.0E-2)
+       #c1 [k]~ dnorm(0,1.0E-2)
+    }
+
+   # prior for precision
+    for (k in 1:nspec) {
+       sh[k] <- 1 + m[k] * ra[k]
+       ra[k]<- (m[k] + sqrt(pow(m[k],2) + 4*pow(sd[k],2))) / (2*pow(sd[k],2))
+       m[k] ~ dunif(0,100)
+       sd[k] ~ dunif(0,100)
+    
+    }
+    
+    for (k in 1:nspec) {
+      for (i in 1:nsite) {
+        phi [i,k] ~ dgamma (sh[k], ra[k])
+      } 
+    }
 
    ## likelihood
    for(k in 1:nspec) {
@@ -33,13 +48,12 @@ model{
 
          # model for average cover
          mu0[i,k]<- b0[k] + rho[k,i]
-
          # keep cover on the track
          mu.lim[i,k] <- min(10,max(-10,mu0[i,k]))
          logit(mu[i,k]) <- mu.lim[i,k]
 
          # precision model
-         phi[i,k] <-exp(c0[k] + c1[k]*nvideos[i])
+         #phi[i,k] <-exp(c0[k] + c1[k]*nvideos[i])
 
          } ## close site loop
       } ## close spp loop
