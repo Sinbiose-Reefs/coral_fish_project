@@ -15,3 +15,8 @@
 
 
 
+Estou trabalhando em alternativas de modelagem dos dados de coral, principalmente para considerar alguns dos aspectos criticados na última reunião. Neste momento, estou trabalhando com todas as espécies de coral registradas por A Aued, de modo que possamos estimar uma riqueza local, uma cobertura total (enfim, algo que indique diversidade). Todos os modelos para comunidades e puramente espaciais, mas os parâmetros sendo estimados são diferentes:1) modelagem da proporção de cobertura de cada espécie de coral (k) em cada sítio (pik). Este pik   varia em função da proximidade espacial entre sítios;2) modelagem da proporção de cobertura de cada espécie de coral k em cada sítio (pik) relativa a cobertura máxima possível (i.e., pik=1) de cobertura em um sítio. Este pik varia em função da proximidade espacial entre sítios;3) modelagem da probabilidade de ao menos uma detecção de cada espécie de coral k (pik) em N foto quadrados instalados por sítio. Este pik varia em função da proximidade espacial entre sítios;4) modelagem da proporção de cobertura de cada espécie de coral (k) em cada sitio (pik) relativa a proporção totalde cobertura por corais. Este pik varia em função da proximidade espacial entre sítios;
+5) modelagem da ocupação de i sítios por cada espécie de coral k, onde o modelo de detecção é igual ao 3), e a probabilidade de ocupação de sítios varia em função da proximidade espacial entre os sítios.  
+
+
+
