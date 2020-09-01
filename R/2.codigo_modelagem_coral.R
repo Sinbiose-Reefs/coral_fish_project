@@ -77,22 +77,22 @@ model{
       } ## close spp loop
 
     # Assess model fit using a sums-of-squares-type discrepancy
-    for (k in 1:nspec) {
-       for (i in 1:nsite) {
-          residual[i,k] <- C[i,k]-p[i,k] # Residuals for observed data
-          predicted[i,k] <- p[i,k] # Predicted values
-          sq[i,k] <- pow(residual[i,k], 2) # Squared residuals for observed data
+    #for (k in 1:nspec) {
+    #   for (i in 1:nsite) {
+    #      residual[i,k] <- C[i,k]-p[i,k] # Residuals for observed data
+    #      predicted[i,k] <- p[i,k] # Predicted values
+    #      sq[i,k] <- pow(residual[i,k], 2) # Squared residuals for observed data
     
-          # Generate replicate data and compute fit stats for them
-          C.new[i,k] ~ dbeta(mu[i,k],q[i,k]) # one new data set at each MCMC iteration
-          sq.new[i,k] <- pow(C.new[i,k]-predicted[i,k], 2) # Squared residuals for new data
-       }
+    #      # Generate replicate data and compute fit stats for them
+    #      C.new[i,k] ~ dbeta(mu[i,k],q[i,k]) # one new data set at each MCMC iteration
+    #      sq.new[i,k] <- pow(C.new[i,k]-predicted[i,k], 2) # Squared residuals for new data
+    #   }
 
-       fit[k] <- sum(sq[,k]) # Sum of squared residuals for actual data set
-       fit.new[k] <- sum(sq.new[,k]) # Sum of squared residuals for new data set
-       test[k] <- step(fit.new[k] - fit[k]) # Test whether new data set more extreme
-       bpvalue[k] <- mean(test[k]) # Bayesian p-value
-    }
+    #   fit[k] <- sum(sq[,k]) # Sum of squared residuals for actual data set
+    #   fit.new[k] <- sum(sq.new[,k]) # Sum of squared residuals for new data set
+    #   test[k] <- step(fit.new[k] - fit[k]) # Test whether new data set more extreme
+    #   bpvalue[k] <- mean(test[k]) # Bayesian p-value
+    #}
 
   # derived parameters
   # MEAN COVER per species
@@ -322,9 +322,9 @@ winnb <- nb2WB(neigh)
 ## model to estimate coral cover
 
 ## calcular a cobertura (soma dos videos)
-cover_data <- apply(arranjo_corais,c(1,3),mean,na.rm=T)
+cover_data <- apply(arranjo_corais,c(1,3),max,na.rm=T)
 ## as dbeta can not deal with 0's and 1', I transformed zeros into very small numbers
-cover_data <- ifelse (cover_data == 0, 0.00001,cover_data)
+cover_data <- ifelse (cover_data == 0, 0.00000001,cover_data)
 
 # standardize number of videos  
 nvideos <- rowSums(is.na(arranjo_corais[,,1])!=T)
@@ -351,7 +351,7 @@ inits <- function(){list(
   
 params <- c(
   ### cover-model parameters
-    "bpvalue", "fit","fit.new","test",
+    #"bpvalue", "fit","fit.new","test",
     "meanCov","totCov","meanCovmu","totCovmu",
     "b0",#"c0","c1",
     "mu","p","q","spacesigma",
@@ -368,7 +368,7 @@ samples <- bugs(data = win.data, parameters.to.save = params,
                 n.burnin = nb, 
                 DIC = T,
                 bugs.directory = "C:/Program Files (x86)/winbugs14_unrestricted/WinBUGS14",
-                debug=F) ## you don't need close manually if debug = F 
+                debug=T) ## you don't need close manually if debug = F 
 
 save (samples,file=here("output", "StaticCARModel_coral_dbeta_comm.RData"))  
   
@@ -398,7 +398,7 @@ local_data <- apply(arranjo_corais,c(1,3),max,na.rm=T)*100
 #winnb <- nb2WB(neigh)
 
 ## bundle data
-str(win.data<- list(C =  local_data,# i[,"y"], 
+str(win.data<- list(C =  round(local_data),# i[,"y"], 
                       nsite = nrow(local_data),
                       nspec = ncol (local_data),
                       N = tot_cover,
@@ -499,14 +499,15 @@ save (samples_dbinV2,file=here("output", "StaticCARModel_coral_dbin_commV2.RData
 # relative to total coral cover 
 
 # maximum cover a species could reach
-tot_coral_cover <- apply (arranjo_corais,c(1,3),max, na.rm=T)*100
+tot_coral_cover <- apply (arranjo_corais,c(1,3),mean, na.rm=T)*100
 tot_coral_cover <- rowSums (tot_coral_cover)
 tot_coral_cover <- ifelse ((tot_coral_cover)>100,100,  (tot_coral_cover))
 
 ## subset dos sitios com cibertura de coral > 0 
 coral_sites <- which( tot_coral_cover >0)
 # select 
-tot_coral_cover <- tot_coral_cover [coral_sites]
+tot_coral_cover_sub <- tot_coral_cover [coral_sites]
+tot_coral_cover_sub [tot_coral_cover_sub <1] <- 1
 # focal species data 
 local_data <- apply(arranjo_corais,c(1,3),mean,na.rm=T)*100
 local_data <- local_data [coral_sites,]
@@ -518,12 +519,14 @@ neigh <- dnearneigh((coord[coral_sites,]), 0, nei)
 table(card(neigh))
 # Convert the neighbourhood
 winnb <- nb2WB(neigh)
+local_data[38,15] 
+tot_coral_cover_sub [38]
 
 ## bundle data
-str(win.data<- list(C =  local_data,# i[,"y"], 
+str(win.data<- list(C =  round(local_data),# i[,"y"], 
                     nsite = nrow(local_data),
                     nspec = ncol (local_data),
-                    N = tot_coral_cover,
+                    N = round(tot_coral_cover_sub),
                     num = winnb$num, 
                     adj = winnb$adj, 
                     weights = winnb$weights
@@ -554,7 +557,7 @@ samples_dbinV3 <- bugs(data = win.data, parameters.to.save = params,
                        n.burnin = nb, 
                        DIC = T,
                        bugs.directory = "C:/Program Files (x86)/winbugs14_unrestricted/WinBUGS14",
-                       debug=F) ## you don't need close manually if debug = F 
+                       debug=T) ## you don't need close manually if debug = F 
 
 save (samples_dbinV3,file=here("output", "StaticCARModel_coral_dbin_commV3.RData"))
 
@@ -602,7 +605,7 @@ params <- c(
 
 ## call and run bugs  
 samples_dbin_bern <- bugs(data = win.data, parameters.to.save = params, 
-                         model.file = here ("bugs","StaticCARModel_coral_dbin_bern_comm.txt"), 
+                         model.file = here ("bugs","StaticCARModel_coral_dbin_bern_comm_GOF.txt"), 
                          inits = NULL,
                          n.chains = nc, 
                          n.thin = nt, 
@@ -616,388 +619,94 @@ samples_dbin_bern <- bugs(data = win.data, parameters.to.save = params,
 
 save (samples_dbin_bern,file=here("output", "StaticCARModel_coral_dbin_bern_comm.RData"))  
 
+## spatial neighborhodd n = 4
 
-## maps of richness, occupancy, and uncertainty
+#create neighborhood
+neigh <- dnearneigh((coord), 0, 4)
+# Number of neighbours
+table(card(neigh))
+# Convert the neighbourhood
+winnb <- nb2WB(neigh)
 
-source("R/packages.R")
-
-## load data
-load (here ("output", "StaticCARModel_coral_dbeta_comm.Rdata"))
-load (here ("output", "StaticCARModel_coral_dbin_commV1.Rdata"))
-load (here ("output", "StaticCARModel_coral_dbin_commV2.Rdata"))
-load (here ("output", "StaticCARModel_coral_dbin_commV3.Rdata"))
-load (here ("output", "StaticCARModel_coral_dbin_bern_comm.Rdata"))
-
-## basic map
-# mapa mundi
-world <- ne_countries(scale = "medium", returnclass = "sf")
-
-# cortar o mapa para ver a america do Sul e parte da central
-wm <- ggplot() + 
-  geom_sf (data=world, size = 0.1, 
-           fill= "gray90",colour="gray90") +
-  coord_sf (xlim = c(-50, -28),  ylim = c(-27, 5), expand = FALSE) +
-  theme_bw() + #xlab ("Longitude")  + ylab ("Latitude") +
-  theme(panel.border = element_blank(), 
-        panel.grid.major = element_blank(), 
-        panel.grid.minor = element_blank(),
-        panel.background = element_rect(fill = "lightcyan",#darkslategray1
-                                        colour = "lightcyan"),
-        axis.text.x = element_text(size=6),
-        axis.ticks.x=element_line(size=1),
-        axis.text.y = element_text(size=6),
-        axis.ticks.y=element_line(size=1),
-        axis.title.x = element_text(size=8),
-        axis.title.y = element_text(size=8),
-        title = element_blank()) 
-
-wm
-  
-## fazer uma coluna dizendo que nao tem coral em 3 sitios
-plot_data <- data.frame(ObsRichness= rowSums(apply (arranjo_corais,c(1,3),max,na.rm=T)>0),
-                        EstRichness = rowSums(samples_dbin_bern$mean$z) )
-plot_data <- melt(plot_data)
-# coordinates
-jitter_coord <- data.frame (LonJitter = jitter (coordenadas$Lon,factor=400),
-                     LatJitter=jitter (coordenadas$Lat,factor=600))
-
-plot_data <- cbind(plot_data,
-                   rbind(jitter_coord, jitter_coord))
-
-## advise to jitter : https://stackoverflow.com/questions/52806580/pie-charts-in-geom-scatterpie-overlapping
-## pie: http://www.spectdata.com/index.php/2018/10/25/how-to-use-ggplot-to-plot-pie-charts-on-a-map/
-
-wm_pie <- wm + geom_point(aes(x=LonJitter, y=LatJitter, col = value),
-                                size=4,
-                               data = plot_data) +
-  facet_wrap( ~ variable) + 
-  scale_color_gradient2(guide="colourbar",
-                        breaks = seq (0,15,2),
-                        low="yellow", mid="green",high="darkblue", midpoint=7)
-  
-wm_pie <- wm_pie + ggtitle("Original cover")+
-  xlab("Longitude") + ylab("Latitude") + 
-  theme (legend.text = element_text(size=8))
-
-  
-wm_pie
-  
-  
-  
-  #; samples
-  
-  #}
-  
-#))
-  
-#stopCluster(cl)
-  
-save (samples_coral, file=here ("output", "samples_coral_CARModel.RData"))
-  
-
-##############################################
-########### Looking at the results
-
-
-##############################################
-### load packages
-
-source("R/packages_model_coral.R")
-
-#############################################
-############### load data
-#############################################
-
-load (here ("output", "Data_coral_detection.RData"))
-
-# Generate several  neighbours for sensitivity analyses
-coord <- coordenadas [,c("Lon","Lat")]
-coordinates(coord) <- ~ Lon + Lat
-
-pdf(here("output", "implications_neigh.pdf"),onefile=T)
-# implications of different distances
-par(mfrow=c(2,4), mai=c(0,0,0,0),mar=c(1,1,1,1),lwd=0.2)
-map("world","Brazil",xlim=c(-50,-6),col="gray")
-plot(dnearneigh(x=(coord), 0, 4),coord,add=T)
-title("N=3")
-map("world","Brazil",xlim=c(-50,-6),col="gray")
-plot(dnearneigh((coord), 0, 6),coord,add=T)
-title("N=6")
-map("world","Brazil",xlim=c(-50,-6),col="gray")
-plot(dnearneigh((coord), 0, 9),coord,add=T)
-title("N=9")
-map("world","Brazil",xlim=c(-50,-6),col="gray")
-plot(dnearneigh((coord), 0, 12),coord,add=T)
-title("N=12")
-map("world","Brazil",xlim=c(-50,-6),col="gray")
-plot(dnearneigh((coord), 0, 15),coord,add=T)
-title("N=15")
-map("world","Brazil",xlim=c(-50,-6),col="gray")
-plot(dnearneigh((coord), 0, 18),coord,add=T)
-title("N=18")
-map("world","Brazil",xlim=c(-50,-6),col="gray")
-plot(dnearneigh((coord), 0, 21),coord,add=T)
-title("N=20")
-map("world","Brazil",xlim=c(-50,-6),col="gray" )
-plot(dnearneigh((coord), 0, 24),coord,add=T)
-title("N=24 lat-long")
-
-dev.off()
-#
-###
-par(mfrow=c(1,1))
-
-## df para analisar a relacao entre a cobertura original e as estimativas de ocupacao
-
-df_res <- lapply (seq(1,length(samples_coral[[1]])), function (k)  ## para cada sp de coral
-  lapply (seq(1,length(samples_coral)), function (i) { ##  para cada vizinhanca
-    
-    ## construa um DF com os resultados
-    res <- data.frame (cob_orig=apply (arranjo_cob_coral_sitio_video[,,1],1,max,na.rm=T),
-        est_z = samples_coral [[i]] [[k]]$mean$z)
-  
-    ; res[,-1]
-    
-    }
-  )
-)
-
-## transformar em df
-df_res_neigh <- lapply (df_res,function (i) do.call (cbind,i))
-
-## sp de coral analisada como nome da lista
-names (df_res_neigh) <- sp_coral
-
-## obter a cobertura original
-
-subset_corais_analisados <- which(dimnames(arranjo_cob_coral_sitio_video)[[3]] %in% sp_coral)
-
-cob_coral_orig_max <- apply (arranjo_cob_coral_sitio_video [,,subset_corais_analisados],
-                               c(1,3),max,na.rm=T)
-
-#### Colar no DF das estimativas de z, e  tb o nome da sp para os plots e fc melt
-df_res_neigh <- lapply (seq (1,length(df_res_neigh )), function (i) {
-  
-  data.frame(df_res_neigh[[i]], 
-         colnames(cob_coral_orig_max)[i])
-  
-  })
-
-## vizinhanca utilizada como nome de coluna
-df_res_neigh <- lapply (df_res_neigh, function (i) {
-  
-  colnames(i) <- c(paste("n",c(3,6,9,12,15,18,21,24),sep=""),
-                   "species")
-  ; i
-  
-})
-
-## nomes das linhas (sitios)
-
-df_res_neigh <- lapply (df_res_neigh, function (i) {
-  
-  rownames(i) <- sitios_bentos
-  ; i
-  
-})
-
-df_long_plot <- lapply(df_res_neigh,melt)
-
-# colar a cob original
-
-df_long_plot <- lapply (seq(1,length (df_long_plot)), function (i) 
-  
-  data.frame (df_long_plot[[i]], 
-             original=cob_coral_orig_max [,i]
+## bundle data  
+str(win.data<- list(C =  local_data,# i[,"y"], 
+                    nsite = nrow(local_data),
+                    N = nvideos,
+                    nspec = ncol(local_data), 
+                    num = winnb$num, 
+                    adj = winnb$adj, 
+                    weights = winnb$weights
 ))
 
-## e desmanchar
-df_long_plot <- do.call(rbind,df_long_plot )
-
-ggplot (df_long_plot, aes (x=original,y=value,col=variable)) + 
-  stat_smooth(aes(x=value,y=value),
-              method = "glm", 
-              method.args = list(family = "binomial"),se=F) +
-  #geom_smooth() + 
-  facet_wrap(~species) + theme_classic() + 
-  geom_point()
-
-
-##################################################
-
-## CORRELATION entre cobertura observada (maxima) 
-## e a ocupacao estimada
-
-correlations <- lapply (seq(1,6), function (k)
+# parameters to monitor
+params <- c(
   
-  unlist(lapply (seq(1,8), function (i)
+  ### bern-bin model
+  "bpvalue", "fit","fit.new","test",
+  "p","z","psi",  "meanP", "meanPsi", 
+  "meanZ", "n.spp.mu","n.spp", "mutot","n.occ",
+  "b0",
+  "spacetau", "spacesigma","rho"
   
-  cor(
-        data.frame (cob_orig= cob_coral_orig_max[,k], ## pegar a cobertura observada
-                  est_z = apply (samples_coral [[i]] [[k]]$sims.list$z,2,mean,na.rm=T)) ## pegar o zmedio
-      )[2,1]
-  )))
-
-## representacao da incerteza
-correlations_uncertainty <- lapply (seq(1,6), function (k) ## para cada sp. de coral
-  
-  do.call(cbind,lapply (seq(1,8), function (i) ## para cada neighborhood
-    
-    lapply (seq(1,600), function (q) ## para cada iteracao
-      
-    
-    cor(
-      
-      data.frame (cob_orig= cob_coral_orig_max[,k], ## 
-                  est_z = samples_coral [[i]] [[k]]$sims.list$z[q,])
-         )[2,1] ## selecionar a correlacao que interessa
-  
-        )
-      )
-    )
-  )
-
-
-pdf(here ("output","figures_coral", "corr_cover_z.pdf"),onefile = T)
-
-par(mfrow=c(2,3))
-
-lapply (seq(1,6), function (i) {
-
-  plot(NA,xlim=c(3,25),
-     ylim=c(-1,1),
-     xaxt="n",
-     ylab="Correlation",
-     xlab="Neighborhood distance (Lat-long degrees)"#,
-     #main="Correlation between observed coral cover\nand estimated site occupancy",
-     )
-
-  axis(side=1,at=c(3,6,9,12,15,18,21,24),c(3,6,9,12,15,18,21,24))
-
-
-  lapply (seq (1,600), function (q) {
-    
-  lines( c(3,6,9,12,15,18,21,25),
-         correlations_uncertainty[[i]][q,],
-      col=rgb(0.400,0.400,0.400,alpha=0.1))
-  })
-  
-  lines(c(3,6,9,12,15,18,21,25),
-         correlations[[i]],lwd=2,col="black")
-        
-  legend ("bottomright", legend = gsub ("\\."," ",sp_coral[i]),
-          bty="n")
-  
-  }
-  )
-
-dev.off()
-
-### correlacao entre deteccao e nao deteccao, e ocupacao estimada
-
-correlations <- lapply (seq(1,6), function (k)
-  
-  unlist(lapply (seq(1,8), function (i)
-    
-    cor(
-      data.frame (cob_orig= apply (ifelse (arranjo_cob_coral_sitio_video[,,k]>0,1,0),1,max,na.rm=T),
-                  est_z = apply (samples_coral [[i]] [[k]]$sims.list$z,2,mean,na.rm=T))
-    )[2,1]
-  )))
-
-## representacao da incerteza
-correlations_uncertainty <- lapply (seq(1,6), function (k) ## para cada sp. de coral
-  
-  do.call(cbind,lapply (seq(1,8), function (i) ## para cada neighborhood
-    
-    lapply (seq(1,600), function (q) ## para cada iteracao
-      
-      
-      cor(
-        data.frame (cob_orig= apply (ifelse (arranjo_cob_coral_sitio_video[,,k]>0,1,0),1,max,na.rm=T),
-                    est_z = samples_coral [[i]] [[k]]$sims.list$z[q,])
-      )[2,1] ## selecionar a correlacao que interessa
-      
-    ))))
-
-
-
-pdf(here ("output","figures_coral", "corr_detection_z.pdf"),onefile = T)
-
-par(mfrow=c(2,3))
-
-lapply (seq(1,6), function (i) {
-  
-  plot(NA,xlim=c(3,25),
-       ylim=c(-1,1),
-       xaxt="n",
-       ylab="Correlation",
-       xlab="Neighborhood distance (Lat-long degrees)"#,
-       #main="Correlation between observed coral cover\nand estimated site occupancy",
-  )
-  
-  axis(side=1,at=c(3,6,9,12,15,18,21,24),c(3,6,9,12,15,18,21,24))
-  
-  
-  lapply (seq (1,600), function (q) {
-    
-    lines( c(3,6,9,12,15,18,21,24),
-           correlations_uncertainty[[i]][q,],
-           col=rgb(0.400,0.400,0.400,alpha=0.1))
-  })
-  
-  lines(c(3,6,9,12,15,18,21,24),
-        correlations[[i]],lwd=2,col="black")
-  
-  legend ("bottomright", legend = gsub ("\\."," ",sp_coral[i]),
-          bty="n")
-  
-}
 )
 
-dev.off()
+## call and run bugs  
+samples_dbin_bern_N4 <- bugs(data = win.data, parameters.to.save = params, 
+                             model.file = here ("bugs","StaticCARModel_coral_dbin_bern_comm_GOF.txt"), 
+                             inits = NULL,
+                             n.chains = nc, 
+                             n.thin = nt, 
+                             n.iter = ni, 
+                             n.burnin = nb, 
+                             DIC = T,
+                             bugs.directory = "C:/Program Files (x86)/winbugs14_unrestricted/WinBUGS14",
+                             debug=F) ## you don't need close manually if debug = F 
 
-### avaliacao do RHat
 
-Rhat_eval <- lapply (samples_coral, function (k)
+
+save (samples_dbin_bern_N4,file=here("output", "StaticCARModel_coral_dbin_bern_comm_N4.RData"))  
+
+## spatial neighborhood N=9
+#create neighborhood
+neigh <- dnearneigh((coord), 0, 9)
+# Number of neighbours
+table(card(neigh))
+# Convert the neighbourhood
+winnb <- nb2WB(neigh)
+
+## bundle data  
+str(win.data<- list(C =  local_data,# i[,"y"], 
+                    nsite = nrow(local_data),
+                    N = nvideos,
+                    nspec = ncol(local_data), 
+                    num = winnb$num, 
+                    adj = winnb$adj, 
+                    weights = winnb$weights
+))
+
+# parameters to monitor
+params <- c(
   
-  unlist(lapply (k, function (i) # extraia o RHat de cada modelo
+  ### bern-bin model
+  "bpvalue", "fit","fit.new","test",
+  "p","z","psi",  "meanP", "meanPsi", 
+  "meanZ", "n.spp.mu","n.spp", "mutot","n.occ",
+  "b0",
+  "spacetau", "spacesigma","rho"
   
-  mean(  i$summary [,'Rhat'])
-  
-)))
-
-pdf (here ("output", "figures_coral","RHat_eval_coral_models.pdf"),onefile = T,width=4,height=4)
-par(mfrow=c(1,1))
-
-plot(NA,xlim=c(3,25),ylim=c(1,3.5),xaxt="n",
-     ylab= "Average RHat",
-     xlab="Neighborhood distance (Lat-long degrees)")
-axis(side=1,at=c(3,6,9,12,15,18,21,24),c(3,6,9,12,15,18,21,24))
-
-lapply (seq (1,6), function (i)
-  lines (c(3,6,9,12,15,18,21,24),
-         sapply (Rhat_eval,"[",i),col=i))
-
-legend ("topright", legend = gsub("\\."," ",sp_coral),
-        col = 1:6,bty="n",cex=0.7,lty=1)
-dev.off()
-
-### save data to fish site-occupancy analysis
-
-## the fourth element is 12's neighborhood
-occupancy_estimate_nb12 <- do.call (cbind,
-                                    
-                                    lapply (samples_coral [[4]], function (i)
-                                      
-                                      i$mean$z)
 )
 
-# set colnames
-colnames(occupancy_estimate_nb12) <- sp_coral
+## call and run bugs  
+samples_dbin_bern_N9 <- bugs(data = win.data, parameters.to.save = params, 
+                          model.file = here ("bugs","StaticCARModel_coral_dbin_bern_comm_GOF.txt"), 
+                          inits = NULL,
+                          n.chains = nc, 
+                          n.thin = nt, 
+                          n.iter = ni, 
+                          n.burnin = nb, 
+                          DIC = T,
+                          bugs.directory = "C:/Program Files (x86)/winbugs14_unrestricted/WinBUGS14",
+                          debug=F) ## you don't need close manually if debug = F 
 
-list_coral_data <- list(cover_original = cob_coral_orig_max,
-                        occupancy_estimate_nb12 =  occupancy_estimate_nb12)
 
-save (list_coral_data, file=here ("output","coral_occupancy_data.RData"))
-
+save (samples_dbin_bern_N9,file=here("output", "StaticCARModel_coral_dbin_bern_comm_N9.RData"))  
