@@ -1,0 +1,36 @@
+
+    
+    model{
+    
+    ## priors 
+    # CAR prior distribution for spatial random effects:
+    rho[1:nsite] ~ car.normal(adj[], weights[], num[], spacetau)
+    
+    # hyperprior of rho 
+    spacesigma ~ dunif(0,5)
+    spacetau  <- 1/(spacesigma*spacesigma)
+    
+    # regression parameters
+    beta0 ~ dunif(-10,10)
+    
+    ## detection probability
+    p ~ dunif (0,1)
+
+    ## likelihood
+    for(i in 1:nsite) {
+       ## occupancy model
+        z [i] ~ dbern (psi[i])
+
+        mu[i] <- beta0 + rho[i]
+        mu.lim[i] <- min(10,max(-10,mu[i]))
+        logit(psi[i]) <- mu.lim[i]
+
+       ## observation model 
+       C[i] ~ dbin(p.eff[i],N[i])
+       p.eff[i] <- p * z[i]
+       
+      }
+    
+    
+    }
+    

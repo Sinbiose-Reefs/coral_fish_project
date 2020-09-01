@@ -1,0 +1,48 @@
+
+
+model {
+
+  # prior for detection probability
+	p ~ dunif(0, 1)
+
+  # prior for occupancy submodel
+  beta0 ~ dunif (0,1)
+  intercept.psi <- logit(beta0)
+    
+  # CAR prior distribution for spatial random effects:
+  rho[1:nsite] ~ car.normal(adj[], weights[], num[], tau)
+  
+  # hyperprior of rho 
+  vrho ~ dnorm(0, 0.5) I(0,)
+  tau  <- 1/vrho
+  
+  # Ecological submodel: Define state conditional on parameters
+	
+  for(i in 1:nsite){
+	
+		z [i] ~ dbern(psi[i])
+		
+		## This keeps the program on the track
+    psi[i]<-max(0.00001,min(0.99999, psi0[i]))
+    w[i] ~ dbern(psi[i])
+               
+		logit(psi0 [i]) <- intercept.psi + rho [i]
+	
+	}
+	
+	# Observation submodel: detection conditional on true site-occupancy
+		
+	for (k in 1:nobs) { 		## loop over replicated surveys
+		      
+	   y [k] ~ dbern(muY[site[k], occa[k]])
+		 muY [site[k], occa[k]] <- z[site[k]] * p
+			    
+	}
+
+  # Derived parameters: Sample and population occupancy, growth rate and turnover
+  n.occ <- sum(z[])#/M
+  mutot <- sum(psi[])
+    
+
+} 
+  
