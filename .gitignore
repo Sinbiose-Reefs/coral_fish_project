@@ -3,6 +3,7 @@
 .RData
 .Ruserdata
 output/*.RData
+output/figures_coral/*.png
 papers
 MS_presentation
 R/modelos_previos
