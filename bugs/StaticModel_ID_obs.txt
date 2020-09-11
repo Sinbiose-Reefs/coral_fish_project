@@ -6,13 +6,13 @@ model {
 	
 	## priors for P
 	## observed ID effect
-	for (o in 1:maxID){ # Implicitly define alpha of p as a vector
+	for (o in 1:maxID){ # Implicitly define alpha of obs as a vector
     alpha.obs[o] ~ dunif(0,1)
     intercept.p.obs[o] <- logit (alpha.obs[o])
 	}
 	
   ## depth effect
-  for (i in 1:2){ # Implicitly define alpha of p as a vector
+  for (i in 1:2){ # Implicitly define alpha of depth as a vector
     alpha.depth[i] ~ dunif(0,1)
     intercept.depth[i] <- logit (alpha.depth[i])
 	}
@@ -21,11 +21,12 @@ model {
   beta0 ~ dunif (0,1)
   intercept.psi <- logit(beta0)
 
-  ## random coefficient
+  ## regression coefficient
 	for (j in 1:nreg){
     beta1[j] ~ dnorm (0,0.001)	
 	}
   
+
 	# Ecological submodel: Define state conditional on parameters
 	for(i in 1:nsite){    ## occupancy model
 	
@@ -33,9 +34,8 @@ model {
 		
 		## This keeps the program on the track
     psi[i]<-max(0.00001,min(0.99999, psi0[i]))
-    w[i] ~ dbern(psi[i])
-               
-		logit(psi0 [i]) <- intercept.psi + beta1[reg[i]] * coral [i]
+    
+		logit(psi0 [i]) <- intercept.psi + beta1 [reg[i]]* coral [i]
 		                                  
 	
 	}
