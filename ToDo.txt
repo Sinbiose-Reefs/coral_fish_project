@@ -18,5 +18,124 @@
 Estou trabalhando em alternativas de modelagem dos dados de coral, principalmente para considerar alguns dos aspectos criticados na última reunião. Neste momento, estou trabalhando com todas as espécies de coral registradas por A Aued, de modo que possamos estimar uma riqueza local, uma cobertura total (enfim, algo que indique diversidade). Todos os modelos para comunidades e puramente espaciais, mas os parâmetros sendo estimados são diferentes:1) modelagem da proporção de cobertura de cada espécie de coral (k) em cada sítio (pik). Este pik   varia em função da proximidade espacial entre sítios;2) modelagem da proporção de cobertura de cada espécie de coral k em cada sítio (pik) relativa a cobertura máxima possível (i.e., pik=1) de cobertura em um sítio. Este pik varia em função da proximidade espacial entre sítios;3) modelagem da probabilidade de ao menos uma detecção de cada espécie de coral k (pik) em N foto quadrados instalados por sítio. Este pik varia em função da proximidade espacial entre sítios;4) modelagem da proporção de cobertura de cada espécie de coral (k) em cada sitio (pik) relativa a proporção totalde cobertura por corais. Este pik varia em função da proximidade espacial entre sítios;
 5) modelagem da ocupação de i sítios por cada espécie de coral k, onde o modelo de detecção é igual ao 3), e a probabilidade de ocupação de sítios varia em função da proximidade espacial entre os sítios.  
 
+Três tarefas:
+
+fazer 3 perguntas legais
+- para quantas spp o efeito foi significativo? 
+[[1]]
+[1] 3
+
+[[2]]
+[1] 2
+
+[[3]]
+[1] 9
+
+[[4]]
+[1] 3
+
+[[5]]
+[1] 6
+
+[[6]]
+[1] 15
+
+[[7]]
+[1] 3
+
+[[8]]
+[1] 11
+
+pra  quantas diminui (TRUE) e aumenta (FALSE) de força?  
+[[1]]
+
+FALSE  TRUE 
+    1     2 
+
+[[2]]
+
+FALSE  TRUE 
+    1     1 
+
+[[3]]
+
+FALSE  TRUE 
+    7     2 
+
+[[4]]
+
+FALSE  TRUE 
+    2     1 
+
+[[5]]
+
+FALSE  TRUE 
+    4     2 
+
+[[6]]
+
+FALSE  TRUE 
+   12     3 
+
+[[7]]
+
+FALSE  TRUE 
+    2     1 
+
+[[8]]
+
+FALSE  TRUE 
+    5     6 
+
+# quantos sitios ficaram com cobertura maior que 5% tiveram menos de 5% apos remocao + drastica de 80%
+
+[[1]]
+
+FALSE 
+    2 
+
+[[2]]
+
+FALSE  TRUE 
+    4     1 
+
+[[3]]
+
+FALSE  TRUE 
+    9     2 
+
+[[4]]
+
+FALSE  TRUE 
+    9     1 
+
+[[5]]
+
+FALSE  TRUE 
+    5     1 
+
+[[6]]
+
+FALSE  TRUE 
+   13     6 
+
+[[7]]
+
+FALSE  TRUE 
+    4     3 
+
+[[8]]
+
+FALSE  TRUE 
+   30     2 
+
+
+
+- o espaço funcional total, por especie de coral analisada, diminui com a perda de cob de coral?
+- probabilidade de deteccao- efeito de diver, depth, e relacao com traits
+
+analises para isto
+
+melhor gráfico
 
 
