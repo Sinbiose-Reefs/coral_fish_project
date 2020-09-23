@@ -24,6 +24,36 @@ peixes$eventDate <-convertToDate(peixes$eventDate)
 ## OBTER A ID DE TODAS AS ESPECIES DE PEIXES ENCONTRADAS POR MORAIS
 todas_sp_Morais <- unique (peixes$ScientificName)
 
+## dados dos peixes (Longo et al)
+L.peixes <- read.csv(here("data","detection","occ_Longo_et_al","Data_Trophic_Interactions_WAtlantic_GLongo_clean.csv"),
+                    header = T)
+
+## OBTER A ID DE TODAS AS ESPECIES DE PEIXES ENCONTRADAS POR MORAIS
+todas_sp_Longo <- unique (L.peixes$species_code)
+
+# corresponder siglas de Longo com nomes completos de Morais
+
+split_names <- lapply (strsplit(todas_sp_Morais,"\\.",fixed=F), substr, 1,3)
+siglas_Morais <- unlist(lapply (split_names, function (i) paste(i[1],i[2],sep="_")))
+
+table(todas_sp_Longo %in% siglas_Morais)
+
+
+write.csv (
+  data.frame (
+    unique_Longo_col.site=unique (L.peixes$site)[order(unique (L.peixes$site))],
+    unique_Aued_col.Sites= c(unique (bentos$Sites)[order(unique (bentos$Sites))], 
+                   rep(NA, length (unique (L.peixes$site)[order(unique (L.peixes$site))])-length(unique (bentos$Sites)[order(unique (bentos$Sites))]))))
+, file ="unique_sites.csv")
+
+write.csv (
+  data.frame (
+    unique_Longo_col.loc=unique (L.peixes$location)[order(unique (L.peixes$location))],
+    unique_Aued_col.Loc= c(unique (bentos$Locality)[order(unique (bentos$Locality))], 
+                             rep(NA, length (unique (L.peixes$location)[order(unique (L.peixes$location))])-length(unique (bentos$Locality)[order(unique (bentos$Locality))]))))
+  , file ="unique_loc.csv")
+
+
 ### lista dos locais com cobertura de coral, segundo Aued et al. 2018 PLosOne
 locais_corais <- c("rgnor_parrachos",
                    "rgnor_norte",
