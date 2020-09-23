@@ -13,51 +13,121 @@ source ("R/functions.R")
 ## fish data
 load (here("output","Data_fish_detection.RData"))
 
-## coral data
-load (here("output","coral_occupancy_data.RData"))
-
 ## coral detection - with coordinates
 load (here("output","Data_coral_detection.RData"))
 
-
 ## LOAD MODEL RESULTS
 
-load(here("output","samples_OCCcoral_PdepthObsID.RData")) 
-res1_orig <- samples_OCCcoral_PdepthObsID$cob_original
-res1_occ <- samples_OCCcoral_PdepthObsID$ocupacao_original
-rm(samples_OCCcoral_PdepthObsID)
-gc()
-load(here("output","samples_OCCcoral_PdepthObsIDRndm.RData"))
-res2_orig <- samples_OCCcoral_PdepthObsIDRndm$cob_original
-res2_occ <- samples_OCCcoral_PdepthObsIDRndm$ocupacao_original
-rm(samples_OCCcoral_PdepthObsIDRndm)
-gc()
+load(here("output","samples_OCCcoral_PdepthObsID_NoRegion.RData")) 
 
-load(here("output","samples_OCCcoralDepth_PObsIDRndm.RData"))
-res3_orig <- samples_OCCcoralDepth_PObsIDRndm$cob_original
-res3_occ <- samples_OCCcoralDepth_PObsIDRndm$ocupacao_original
-rm(samples_OCCcoralDepth_PObsIDRndm)
-gc()
+# cenarios
+coral_cover_data <- lapply (seq(1,ncol(sp_cover_data)), function (i) {
+  
+  coral_cover <- cbind (original= sp_cover_data[,i], 
+                        less20 = sp_cover_data[,i] * 0.80,
+                        less40 = sp_cover_data[,i] * 0.60,
+                        less60 = sp_cover_data[,i] * 0.40,
+                        less80 = sp_cover_data[,i] * 0.20)
+})
 
-load(here("output","StaticModelOccCoral_IDobsRdmP.RData"))
-res4_orig <- StaticModelOccCoral_IDobsRdmP$cob_original
-res4_occ <- StaticModelOccCoral_IDobsRdmP$ocupacao_original
-rm(StaticModelOccCoral_IDobsRdmP)
-gc()
 
-## Creating a list with the results of each model
-lista_modelos_original <- list(res1_orig,
-                               res2_orig,
-                               res3_orig,
-                               res4_orig)
-lista_modelos_occupancy <- list(res1_occ,
-                                res2_occ,
-                                res3_occ,
-                                res4_occ)
+## data to use in the plot
+extracted_data <- 
+  
+lapply (seq(1,length(coral_species)), function (coral)
+          
+   lapply (seq (1, length (fish_species [[coral]])), function (fish)
+    
+     do.call(rbind, lapply (seq (1,length(colnames(coral_cover_data[[coral]]))), function (cenario)
+      
+         data.frame (
+  
+          coral = coral_species[coral],
 
-# nomear a lista de resultados
-lista_modelos_original <- lapply (lista_modelos_original, function (i) {names (i) <- sp_coral; i})
-lista_modelos_occupancy <- lapply (lista_modelos_occupancy, function (i) {names (i) <- sp_coral; i})
+          peixe = fish_species [[coral]][fish],
+
+          cenario = colnames(coral_cover_data[[coral]])[cenario],
+
+          estimate = mean (samples_OCCcoral_PdepthObsID_NoRegion[[coral]][[cenario]]$sims.list$beta1 [,fish]),
+  
+          low = quantile (samples_OCCcoral_PdepthObsID_NoRegion[[coral]][[cenario]]$sims.list$beta1 [,fish], 0.05),
+
+          high = quantile (samples_OCCcoral_PdepthObsID_NoRegion[[coral]][[cenario]]$sims.list$beta1 [,fish],0.95)
+
+)
+)
+)
+))
+
+teste <- do.call (rbind, extracted_data[[1]])
+
+teste$cenario<-factor(teste$cenario,
+       levels = c("less80","less60","less40","less20","original"))
+
+
+require(ggplot2)
+pd <- position_dodge(.2)
+
+a <- ggplot (teste, aes  (y=peixe, x=estimate, fill=cenario,
+                                        colour=cenario)) + 
+  geom_errorbar(aes(xmin=low,xmax=high),width = .3,
+                position=pd) + theme_classic() + 
+  geom_point(aes(estimate),size=2,position=pd) + 
+  geom_vline(xintercept = 0, linetype="dashed", 
+             color = "gray50", size=0.5)+
+  scale_color_manual(values=c("gray70", "gray60", "gray50",
+                              "gray40","black")) + 
+  xlab("Regression coefficient estimate") + 
+  ylab ("Reef fish species") + 
+  xlim(-20, 20)
+  
+
+# regression shapes
+
+data_shape <- lapply (c (-10,-2,0,2,10), function (i)
+  
+            data.frame (cc=seq(-2,2,0.1),
+                          rel=plogis ( 0 + i * seq(-2,2,0.1)))
+)
+
+
+plot_eff <- lapply (data_shape, function (i)
+  
+  ggplot (i, aes (x=cc,y=rel)) + 
+  geom_line(size=2) + theme_classic() + 
+  theme (axis.title = element_blank(),
+         axis.text = element_blank(),
+         axis.ticks = element_blank()) 
+)
+
+
+grid.arrange(
+  plot_eff [[1]],
+  plot_eff [[2]], 
+  plot_eff [[3]],
+  plot_eff [[4]],
+  plot_eff [[5]],
+  a,
+  ncol=9,nrow=7, 
+  layout_matrix = rbind (c(NA,NA,1,2,3,4,5,NA,NA),
+                         c(6,6,6,6,6,6,6,6,6),
+                         c(6,6,6,6,6,6,6,6,6),
+                         c(6,6,6,6,6,6,6,6,6),
+                         c(6,6,6,6,6,6,6,6,6),
+                         c(6,6,6,6,6,6,6,6,6),
+                         c(6,6,6,6,6,6,6,6,6)))
+
+
+####
+
+
+
+
+
+
+
+
+
 
 ## table of bayesian P value for models with original coral cover
 bvclosed_original <- lapply (lista_modelos_original, function (model)
