@@ -7,8 +7,10 @@ source ("R/functions.R")
 # load basic data
 ## fish data
 load (here("output","Data_fish_detection.RData"))
+
 ## coral data
 load (here("output","coral_occupancy_data.RData"))
+
 ## coral detection - with coordinates
 load (here("output","Data_coral_detection.RData"))
 
