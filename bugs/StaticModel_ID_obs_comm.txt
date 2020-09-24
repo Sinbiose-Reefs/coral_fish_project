@@ -23,21 +23,21 @@ model {
   
    ## occupancy priors
    	for (k in 1:nspec) {
-    #   for (j in 1:nreg) {
-         beta0 [k] ~ dunif (0,1)
-         intercept.psi [k] <- logit(beta0[k])
-      # }
+       for (j in 1:nreg) {
+         beta0 [k,j] ~ dunif (0,1)
+         intercept.psi [k,j] <- logit(beta0[k,j])
+       }
    	}
 
   ## regression coefficient
 	for (k in 1:nspec) {
-  #   for (j in 1:nreg){
-        beta1[k] ~ dnorm (mu.int[k],tau.mu[k])	
-  #      ## priors for them
-         mu.int[k] ~ dnorm(0, 0.001)
-         tau.mu[k] <- 1/(sigma.int[k]*sigma.int[k])
-         sigma.int[k] ~ dunif(0,10)
-	#   }
+     for (j in 1:nreg){
+        beta1[k,j] ~ dnorm (mu.int[k,j],tau.mu[k,j])	
+        ## priors for them
+        mu.int[k,j] ~ dnorm(0, 0.001)
+        tau.mu[k,j] <- 1/(sigma.int[k,j]*sigma.int[k,j])
+        sigma.int[k,j] ~ dunif(0,10)
+	   }
 	}
 
 	# Ecological submodel: Define state conditional on parameters
@@ -49,7 +49,7 @@ model {
 	   	## This keeps the program on the track
       psi[i,k]<-max(0.00001,min(0.99999, psi0[i,k]))
     
-		  logit(psi0 [i,k]) <- intercept.psi[k] + beta1 [k]* coral [i]# intercept.psi[k,reg[i]] + beta1 [k,reg[i]]
+		  logit(psi0 [i,k]) <- intercept.psi[k,reg[i]] + beta1 [k,reg[i]]* coral [i]
 		                                  
 		   }
    }
@@ -154,14 +154,7 @@ model {
 	   mutot[k] <- sum(psi[1:nsite,k]) ## expected number of occupied sites (infinite sample)
 	   n.occ[k] <- sum(z[1:nsite,k]) ## finite sample
      mean.p[k] <- mean (p[k,])
-  }
-     ## richness
-     for (i in 1:nsite) {
-     
-        rich[i] <- sum (z[i,])
-     
      }
-     
 	} # end of the model
 	
     
