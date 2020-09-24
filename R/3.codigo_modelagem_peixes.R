@@ -25,22 +25,22 @@ source("R/packages.R")
 ## definir o modelo, em linguagem  JAGS
 
 
-sink(here ("bugs","StaticModel_ID_obs_comm.txt"))
+sink(here ("bugs","StaticModel_ID_obs_comm_NoReg.txt"))
 cat("
     
 model {
-	
-	# priors
-	
-	## priors for P
-	## observed ID effect
+        
+        # priors
+        
+        ## priors for P
+        ## observed ID effect
   for (k in 1:nspec) {
-	   for (o in 1:maxID){ # Implicitly define alpha of obs as a vector
+           for (o in 1:maxID){ # Implicitly define alpha of obs as a vector
        alpha.obs[k,o] ~ dunif(0,1)
        intercept.p.obs[k,o] <- logit (alpha.obs[k,o])
-	   }
+           }
    }
-	
+        
   ## depth effect
   for (k in 1:nspec) {
      for (i in 1:2){ # Implicitly define alpha of depth as a vector
@@ -50,59 +50,59 @@ model {
    }
   
    ## occupancy priors
-   	for (k in 1:nspec) {
-       for (j in 1:nreg) {
-         beta0 [k,j] ~ dunif (0,1)
-         intercept.psi [k,j] <- logit(beta0[k,j])
-       }
-   	}
+        for (k in 1:nspec) {
+    #   for (j in 1:nreg) {
+         beta0 [k] ~ dunif (0,1)
+         intercept.psi [k] <- logit(beta0[k])
+      # }
+        }
 
   ## regression coefficient
-	for (k in 1:nspec) {
-     for (j in 1:nreg){
-        beta1[k,j] ~ dnorm (mu.int[k,j],tau.mu[k,j])	
-        ## priors for them
-        mu.int[k,j] ~ dnorm(0, 0.001)
-        tau.mu[k,j] <- 1/(sigma.int[k,j]*sigma.int[k,j])
-        sigma.int[k,j] ~ dunif(0,10)
-	   }
-	}
+        for (k in 1:nspec) {
+  #   for (j in 1:nreg){
+        beta1[k] ~ dnorm (mu.int[k],tau.mu[k])  
+  #      ## priors for them
+         mu.int[k] ~ dnorm(0, 0.001)
+         tau.mu[k] <- 1/(sigma.int[k]*sigma.int[k])
+         sigma.int[k] ~ dunif(0,10)
+        #   }
+        }
 
-	# Ecological submodel: Define state conditional on parameters
+        # Ecological submodel: Define state conditional on parameters
   for (k in 1:nspec) {
-	   for(i in 1:nsite){    ## occupancy model
-	
-		   z [i,k] ~ dbern(psi[i,k])
-		
-	   	## This keeps the program on the track
+           for(i in 1:nsite){    ## occupancy model
+        
+                   z [i,k] ~ dbern(psi[i,k])
+                
+                ## This keeps the program on the track
       psi[i,k]<-max(0.00001,min(0.99999, psi0[i,k]))
     
-		  logit(psi0 [i,k]) <- intercept.psi[k,reg[i]] + beta1 [k,reg[i]]* coral [i]
-		                                  
-		   }
+                  logit(psi0 [i,k]) <- intercept.psi[k] + beta1 [k]* coral [i]# intercept.psi[k,reg[i]] + beta1 [k,reg[i]]
+                                                  
+                   }
    }
-	
-		# # # # 
-		####### observation model
-		
+        
+                # # # # 
+                ####### observation model
+                
     for (k in 1:nspec) {
-		   
-       for (n in 1:nobs) { 		## loop over replicated surveys
-		      
-		         y [n,k] ~ dbern(muY[site[n], occa[n],k])
-			       muY [site[n], occa[n],k] <- z[site[n],k] * p[k,n]
-			       logit (p[k,n]) <-  intercept.p.obs [k,obs[n]] + intercept.depth[k,prof[n]]
+                   
+       for (n in 1:nobs) {              ## loop over replicated surveys
+                      
+                         y [n,k] ~ dbern(muY[site[n], occa[n],k])
+                               muY [site[n], occa[n],k] <- z[site[n],k] * p[k,n]
+                               logit (p[k,n]) <-  intercept.p.obs [k,obs[n]] + intercept.depth[k,prof[n]]
           
        }
 
     }
-	
-	
-	##############################################################
-	#                      Goodness of fit
-	##############################################################
-	#       (based on posterior predictive distributions)       #
-	#############################################################
+        
+        
+        ##############################################################
+        #                      Goodness of fit
+        ##############################################################
+        #       (based on posterior predictive distributions)       #
+        #############################################################
     # Draw a replicate data set under the fitted model
     for (k in 1:nspec) {
        for (n in 1:nobs){
@@ -111,7 +111,7 @@ model {
        }
    }
     
-	# Compute detection frequencies for observed and replicated data
+        # Compute detection frequencies for observed and replicated data
   ## the first loop is used to extract data for each site    
   ## The outside function sum is used to aggregate data
     
@@ -176,15 +176,23 @@ model {
      FTrepClosed[k] <- sum(ftrepClosed[1:nsite,k])
      Chi2ratioClosed[k] <- Chi2Closed[k] / Chi2repClosed[k]
      FTratioClosed[k] <- FTClosed[k] / FTrepClosed[k]
-	
-	   ##
-	   # Derived parameters: Sample and population occupancy, growth rate and turnover
-	   mutot[k] <- sum(psi[1:nsite,k]) ## expected number of occupied sites (infinite sample)
-	   n.occ[k] <- sum(z[1:nsite,k]) ## finite sample
+        
+           ##
+           # Derived parameters: Sample and population occupancy, growth rate and turnover
+           mutot[k] <- sum(psi[1:nsite,k]) ## expected number of occupied sites (infinite sample)
+           n.occ[k] <- sum(z[1:nsite,k]) ## finite sample
      mean.p[k] <- mean (p[k,])
+  }
+     ## richness
+     for (i in 1:nsite) {
+     
+        rich[i] <- sum (z[i,])
+     
      }
-	} # end of the model
-	
+     
+        } # end of the model
+        
+
     ",fill = TRUE)
 
 sink()
@@ -774,8 +782,8 @@ samples_OCCcoral_PdepthObsID <- parLapply (cl, seq(1,length(coral_cover_data)), 
                          #nocca = max(df_fish_data[[i]]$J),
                          site = df_fish_data_per_coral [[coral]] [,"M",1],
                          occa = df_fish_data_per_coral[[coral]] [,"J",1],
-                         coral= ((coral_cover_data[[coral]]-mean(coral_cover_data[[coral]]))[,scenario],
-                         e= 0.0001)))
+                         coral= ((coral_cover_data[[coral]]-mean(coral_cover_data[[coral]]))/sd(coral_cover_data[[coral]]))[,scenario],
+                         e= 0.0001))
   
 
     ## inits
@@ -791,7 +799,7 @@ samples_OCCcoral_PdepthObsID <- parLapply (cl, seq(1,length(coral_cover_data)), 
     # run jags
       
     samples <- jags(data = jags.data, params, 
-                    model = here ("bugs","StaticModel_ID_obs_comm.txt"), inits = inits,
+                    model = here ("bugs","StaticModel_ID_obs_comm_NoReg.txt"), inits = inits,
                       n.chains = nc, n.thin = nt, n.iter = ni, n.burnin = nb, 
                       DIC = T,parallel = F)
     
