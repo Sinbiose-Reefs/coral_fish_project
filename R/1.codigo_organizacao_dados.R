@@ -100,10 +100,6 @@ L.peixes$eventID_MOD <- paste (L.peixes$Region,
 ## OBTER A ID DE TODAS AS ESPECIES DE PEIXES ENCONTRADAS POR Longo
 todas_sp_Longo <-  (L.peixes$species_code)
 
-# corresponder siglas de Longo com nomes completos de Morais
-split_names <- lapply (strsplit(todas_sp_Morais,"\\.",fixed=F), substr, 1,3)
-siglas_Morais <- unlist(lapply (split_names, function (i) paste(i[1],i[2],sep="_")))
-
 # corresponder siglas de Longo com nomes completos de Quimbayo
 traits_peixes <- read.csv(here("data","traits","Atributos_especies_Atlantico_&_Pacifico_Oriental_2020_04_28.csv"),
                           h=T,sep=";")
@@ -112,7 +108,7 @@ split_names_JPQ <- lapply (split_names_JPQ,tolower)
 siglas_JPQ <- unlist(lapply (split_names_JPQ, function (i) paste(i[1],i[2],sep="_")))
 
 ## inserir uma tabela em Longo, com o nome completo das spp
-L.peixes$ScientificName <- peixes$ScientificName [match(todas_sp_Longo,siglas_JPQ)]
+L.peixes$ScientificName <- traits_peixes$Name [match(todas_sp_Longo,siglas_JPQ)]
 
 # encontrar quais especies estao em longo, mas nao estao em Morais
 unique (todas_sp_Longo [which(todas_sp_Longo %in% siglas_JPQ == F)])
@@ -122,7 +118,7 @@ L.peixes$ScientificName [which(L.peixes$species_code == "spa_sp")] <- "sparisoma
 L.peixes$ScientificName [which(L.peixes$species_code == "ocy_cry")] <- "ocyurus_chrysurus"
 L.peixes$ScientificName [which(L.peixes$species_code == "ni")] <- "not_identified"
 L.peixes$ScientificName [which(L.peixes$species_code == "kyp_sp")] <- "kyphosus_sp"
-L.peixes$ScientificName [which(L.peixes$species_code == "kyp_sp")] <- "eucinostomus_lefroyi"
+L.peixes$ScientificName [which(L.peixes$species_code == "euc_lef")] <- "eucinostomus_lefroyi"
 L.peixes$ScientificName [which(L.peixes$species_code == "lut_ale")] <- "lutjanus_alexandrei"
 L.peixes$ScientificName [which(L.peixes$species_code == "lut_sp")] <- "lutjanus_sp"
 L.peixes$ScientificName [which(L.peixes$species_code == "aca_sp")] <- "acanthurus_sp"
@@ -146,24 +142,23 @@ L.peixes$ScientificName [which(L.peixes$species_code == "sca_coel")] <- "scarus_
 L.peixes$ScientificName [which(L.peixes$species_code == "carangidae")] <- "caranx_sp3"
 L.peixes$ScientificName [which(L.peixes$species_code == "epi_niv")] <- "epinephelus_niveatus"
 L.peixes$ScientificName [which(L.peixes$species_code == "epi_cru")] <- "epinephelus_cruentatus"
+L.peixes$ScientificName [which(L.peixes$species_code == "neg_bre")] <- "negaprion_brevirostris"
+L.peixes$ScientificName [which(L.peixes$species_code == "gin_cir")] <- "ginglymostoma_cirratum"
+L.peixes$ScientificName [which(L.peixes$species_code == "par_sp")] <- "parablennius_sp"
+L.peixes$ScientificName [which(L.peixes$species_code == "aet_nar")] <- "aetobatus_narinari"             
+L.peixes$ScientificName [which(L.peixes$species_code == "sco_sp")] <- "scorpaena_sp"
+L.peixes$ScientificName [which(L.peixes$species_code == "hae_sp")] <- "haemulon_sp"
+L.peixes$ScientificName [which(L.peixes$species_code == "manjuba")] <- "anchoviella_lepidentostole"             
+L.peixes$ScientificName [which(L.peixes$species_code == "das_ame")] <- "hypanus_americana"            
+L.peixes$ScientificName [which(L.peixes$species_code == "sph_sp")] <- "sphoeroides_sp"
+L.peixes$ScientificName [which(L.peixes$species_code ==  "car_plu")] <- "caranx_plumbeus"     
+L.peixes$ScientificName [which(L.peixes$species_code ==  "lut_moh")] <- "lutjanus_mohogani"             
+L.peixes$ScientificName [which(L.peixes$species_code == "mir_jac")] <- "myripristis_jacobus"
+L.peixes$ScientificName [which(L.peixes$species_code == "pem_sco")] <- "pempheris_schomburgkii"
+L.peixes$ScientificName [which(L.peixes$species_code == "das_sp")] <- "dasyatis_sp"
+# 
+L.peixes$site [which(L.peixes$species_code == "het_pri")]
 
-
-# "neg_bre"                    
-# "gin_cir"             
-# "par_sp"              
-# "aet_nar"             
-# "sco_sp"              
-# "hae_sp"
-# "manjuba" <- anchoviella lepidentostole             
-# "das_ame"             
-# "sph_sp"
-# "car_plu"     
-# "lut_moh"             
-# "mir_jac"             
-# "pem_sco" 
-# "das_sp"
-# "het_pri"
-  
   
 write.csv (L.peixes, file =here("data","detection","occ_Longo_et_al","Data_Trophic_Interactions_WAtlantic_GLongo_clean_UPDATED_ALLB.csv"))
 
