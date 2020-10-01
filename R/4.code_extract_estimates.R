@@ -34,8 +34,8 @@ coral_cover_data <- lapply (seq(1,ncol(sp_cover_data)), function (i) {
 ## data to use in the plot
 extracted_data <- 
   
-lapply (seq(1,length(coral_species)), function (coral)
-          
+  lapply (seq(1,length(coral_species)), function (coral)
+            
    lapply (seq (1, length (fish_species [[coral]])), function (fish)
     
      do.call(rbind, lapply (seq (1,length(colnames(coral_cover_data[[coral]]))), function (cenario)
@@ -100,6 +100,9 @@ plot_eff <- lapply (data_shape, function (i)
          axis.ticks = element_blank()) 
 )
 
+library(ggplot2)
+library(gridExtra)
+library(grid)
 
 grid.arrange(
   plot_eff [[1]],
@@ -116,6 +119,16 @@ grid.arrange(
                          c(6,6,6,6,6,6,6,6,6),
                          c(6,6,6,6,6,6,6,6,6),
                          c(6,6,6,6,6,6,6,6,6)))
+
+grid.text("% of coral cover", 
+          x = unit(0.5, "npc"), 
+          y = unit(.86, "npc"),gp = gpar(fontsize=8))
+
+grid.text(expression (psi['i']), 
+          x = unit(0.22, "npc"), 
+          y = unit(.94, "npc"),
+          gp = gpar(fontsize=10),
+          rot=90)
 
 
 ####
