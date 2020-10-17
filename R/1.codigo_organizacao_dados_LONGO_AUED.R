@@ -171,8 +171,7 @@ L.peixes$ScientificName <- tolower (L.peixes$ScientificName)
 bentos <- bentos [which(bentos$Locality %in% locais_corais),]
 L.peixes <- L.peixes [which(L.peixes$location %in% locais_corais),]
 
-## modificar o eventID removendo o ano, desde que escolhemos um lapso temporal que cobre 2010 a 2014, 
-## de modo que possamos analisar os dados se peixes foi coletado em 2012 e bentos em 2014, por exemplo 
+## modificar o eventID removendo o ano
 
 bentos$eventID_MOD <- substr(bentos$eventID, 1,nchar(as.character(bentos$eventID))-5) 
 
@@ -183,7 +182,8 @@ bentos$eventID_MOD <- substr(bentos$eventID, 1,nchar(as.character(bentos$eventID
 traits_peixes <- read.csv(here("data","traits","Atributos_especies_Atlantico_&_Pacifico_Oriental_2020_04_28.csv"),
                           h=T,sep=";")
 sp_fundo_sed <- traits_peixes [which(traits_peixes$Home_range %in% c("sed","mob") & 
-                                       traits_peixes$Level_water %in% c("low","bottom")),]
+                                       traits_peixes$Level_water %in% c("low","bottom") &
+                                       traits_peixes$Diel_activity %in% c("day","both")),]
 ## filtrando familias
 
 sp_fundo_sed_fam <- sp_fundo_sed [which(sp_fundo_sed$Family %in% c("acanthuridae", "apogonidae", "blenniidae",
@@ -217,9 +217,12 @@ L.bentos_subset <- bentos [which(bentos$eventID_MOD %in% L.peixes_subset$eventID
 
 sitios_longo <- unique (L.peixes_subset$eventID_MOD)
 sitios_longo <- gsub ("oc_isl.","",gsub ("se_reefs.","",gsub ("ne_reefs.","",sitios_longo)))
-
+sitios_longo <- sitios_longo [order(sitios_longo)]
 ## editar tb na tabela original
 L.peixes_subset$eventID_MOD <- gsub ("oc_isl.","",gsub ("se_reefs.","",gsub ("ne_reefs.","",L.peixes_subset$eventID_MOD)))
+
+## substituir NAs por 1, porque teve observacao de bite
+L.peixes_subset$number_of_bites [is.na(L.peixes_subset$number_of_bites)] <- 1
 
 ## todas as spp do subset de dados de longo
 todas_sp_longo <- unique (L.peixes_subset$ScientificName)
@@ -285,6 +288,7 @@ imputed_longo_data <- lapply (imputed_longo_data, function (i) {
   ; i ## return i 
   
 })
+
 names (imputed_longo_data ) <- sitios_longo
 ## neste formato, a especie de peixe esta na linha, o video_number na coluna,
 ## e o sitio na lista; desmanchar para oragnizar no formato array
@@ -307,29 +311,45 @@ tabela_data_longo <- lapply (list_sp_longo, function (k)
 # ncol(tabela_data_longo[[1]]) ## numero videos
 # nrow(tabela_data_longo[[1]]) ## numero sites
 
+## montar uma tabela modelo para imputar sitios
+nvideos_site <- unlist (lapply (data_longo_adjusted,ncol))
+
+## sitios para imputar - NA se sem observacao nenhuma (nenhum video)
+imput_sitios <- lapply (seq(1,length(nvideos_site)), function (i)
+  
+  matrix(0, ncol=nvideos_site[i],nrow=1,
+         dimnames = list(sitios_longo[i],
+                         seq(1,nvideos_site[i]))))
+
+## imputar sitios NAs
+imput_sitios <- lapply (seq (1,length (imput_sitios)), function (i)
+cbind(imput_sitios[[i]], matrix (NA, nrow=1,ncol = maximo_videos - ncol(imput_sitios [[i]]),
+        dimnames =list(rownames(imput_sitios [[i]]),
+                       seq( ncol(imput_sitios [[i]])+1, maximo_videos))
+        )
+)
+)
+
+## sitios para imputar
+imput_sitios <- do.call (rbind,imput_sitios)[,-12]
+
 # imputar sitios
 tabela_data_longo <- lapply (tabela_data_longo, function (i)
 
-  rbind (i, 
-       matrix (0, 
-        ncol = ncol(i),
-        nrow = length (sitios_longo [which(sitios_longo %in% rownames(i) == F)]),
-        dimnames = list (
-          sitios_longo [which(sitios_longo %in% rownames(i) == F)],
-          colnames(i)        
+  rbind (i[,-1], imput_sitios [which(rownames(imput_sitios) %in% rownames(i) == F),])
+       
         )
-        )
-))
+        
 
 names(tabela_data_longo) <- list_sp_longo
 
-## remover a coluna com nome das spp 
-tabela_data_longo <-  lapply (tabela_data_longo, function (i) 
-  
-  i[,-1]
-  
-)
+## colocar as linhas em ordem alfabetica commum 
 
+tabela_data_longo <- lapply(tabela_data_longo, function (i) {
+  
+  i [order(rownames(i)),]
+
+  })
 
 ### transformar a lista em array
 
@@ -337,14 +357,14 @@ arranjo_longo_sitio_video <-   array(unlist(tabela_data_longo ),
                                          dim = c(nrow(tabela_data_longo [[1]]), 
                                                  ncol(tabela_data_longo [[1]]), 
                                                  length(tabela_data_longo )),
-                                         dimnames = list (NULL,
+                                         dimnames = list (sitios_longo [order(sitios_longo)],
                                                           NULL,
                                                           list_sp_longo))
 
 ## transformar em 0 e 1 ( deteccao e nao deteccao )
 arranjo_longo_sitio_video [arranjo_longo_sitio_video > 1] <- 1
-## removendo a coluna 11 que nao tem nada
-arranjo_longo_sitio_video <- arranjo_longo_sitio_video[,-11,]
+## remover o video 11
+arranjo_longo_sitio_video <- arranjo_longo_sitio_video [,-11,] 
 
 ##############################################
 ## covariaveis de observacao
@@ -399,6 +419,8 @@ df_tempo <- lapply (data_longo_tempo, function (i) {
 ## list to df
 ## remover a colunas 11 que nao tem nada
 df_tempo <- do.call (rbind, df_tempo)[,-11]
+
+rowSums (df_tempo>0,na.rm=T) == rowSums (arranjo_longo_sitio_video[,,1]>=0,na.rm=T)
 
 ## profundidade
 data_longo_prof <- unlist(lapply (strsplit (sitios_longo, "\\."), "[[",3))
@@ -532,9 +554,10 @@ arranjo_cob_coral_sitio_video <-   array(unlist(tab_completa_site_ocasiao_coral)
                                          dim = c(nrow(tab_completa_site_ocasiao_coral[[1]]), 
                                                  ncol(tab_completa_site_ocasiao_coral[[1]]), 
                                                  length(tab_completa_site_ocasiao_coral)),
-                                         dimnames = list (NULL,
+                                         dimnames = list (sitios_bentos,
                                                           NULL,
                                                           sp_corais))
+
 ## obter informacao combinada das 3 spp de agaricia
 agaricia_sp_cover <- apply (arranjo_cob_coral_sitio_video [,,grep("Agaricia", sp_corais)],
                       c(1,2), sum)
@@ -551,9 +574,12 @@ arranjo_corais <- arranjo_cob_coral_sitio_video
 ## remover dados do video 16 (que nao tem dados)
 arranjo_corais <- arranjo_corais [,-16,]
 
+#####################################################################
 ## dados de coebrtura de cada espécie de coral retiva a cobertura de coral do videoplot
-## cobertura total de coral no video k, sitio i
+
+## cobertura total de corais no video k, sitio i
 cover_data <- apply(arranjo_corais,c(1,2),sum,na.rm=T) 
+
 ## cobertura de cada sp no video relativo ao total, using for =[
 
 shell_array <- array (NA,dim = dim(arranjo_corais)) 
@@ -564,17 +590,18 @@ for (i in 1:dim(arranjo_corais)[3]) {
   
 }
 
+## Nan por zero, porque 0/0 = NaN
+shell_array [is.nan(shell_array)] <- 0
+
 ## maximo de cobertura detectado em um video
 ## NA porque em alguns sitios nao foi registrado nada de coral
-sp_cover_data <- apply (shell_array,c(1,3),max,na.rm=T)
-# infinite  eh gerado para os locais onde nao tem  nada de coral
-sp_cover_data [is.infinite (sp_cover_data)] <-  0
+sp_cover_data <- apply (shell_array,c(1,3),mean,na.rm=T)
 colnames(sp_cover_data) <- dimnames(arranjo_corais )[[3]]
-
+rownames(sp_cover_data)<- dimnames(arranjo_corais )[[1]]
 ## remover spp que ocorreram em poucos locais (menos min_sites)
 
 site_coral_detection <- ifelse (sp_cover_data>0,1,0)
-min_sites <- 4
+min_sites <- round(nrow(site_coral_detection)*0.2)
 
 ## na cobertura em relacao ao total
 sp_cover_data <- sp_cover_data[,which(colSums (site_coral_detection)>=min_sites)]
@@ -670,19 +697,19 @@ df_fish_data <- lapply (subset_peixes, function (coral) ## para cada data set de
     ## ocasioes
     df_data <- data.frame(obs= seq(1,length(y_long)),
                           y= y_long,
-                          time = tabela_tempo,
+                          time = as.numeric(tabela_tempo),
                           M = rep (seq (1,dim(coral)[1]), 
                                    ncol(df_tempo)),
                           J = unlist(
                             lapply (seq(1,ncol(df_tempo)), function (i) 
                               rep (i,dim(coral)[1]))
                           ),
-                          prof = data_longo_prof
+                          prof = as.numeric(ifelse (data_longo_prof =="fundo", 2,1))
     )
     
     ## remover NAs
     df_data <- df_data[which (is.na(df_data$time) != T),]
-    df_data [is.na (df_data)] <- 0
+    #df_data [is.na (df_data)] <- 0
     
     ; 
     df_data
@@ -712,6 +739,7 @@ df_fish_data_per_coral <- lapply (seq (1,length(df_fish_data)), function (i){
   
 }
 )
+
 # lista das spp
 coral_species <- colnames(site_coral_detection)
 fish_species <- lapply (subset_peixes, function (i){
@@ -721,7 +749,6 @@ fish_species <- lapply (subset_peixes, function (i){
   
   })
   
-
 ###############################################
 # # # # # # # # #  SAVE # # # # # # # # # # # #
 ###############################################
