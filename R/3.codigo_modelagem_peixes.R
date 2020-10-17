@@ -16,10 +16,6 @@
 
 ### PARTE SUPERIOR
 
-## load packages
-
-source("R/packages.R")
-
 #######################################
 ## modelo com efeito de observador (MODELO 1)
 ## definir o modelo, em linguagem  JAGS
@@ -30,15 +26,14 @@ cat("
     
 model {
         
-        # priors
-        
-        ## priors for P
-        ## observed ID effect
+  # priors
+  ## priors for P
+  ## observed ID effect
   for (k in 1:nspec) {
-           for (o in 1:maxID){ # Implicitly define alpha of obs as a vector
-       alpha.obs[k,o] ~ dunif(0,1)
-       intercept.p.obs[k,o] <- logit (alpha.obs[k,o])
-           }
+     for (o in 1:maxID){ # Implicitly define alpha of obs as a vector
+        alpha.obs[k,o] ~ dunif(0,1)
+        intercept.p.obs[k,o] <- logit (alpha.obs[k,o])
+        }
    }
         
   ## depth effect
@@ -49,73 +44,75 @@ model {
      }
    }
   
-   ## occupancy priors
-        for (k in 1:nspec) {
-    #   for (j in 1:nreg) {
-         beta0 [k] ~ dunif (0,1)
-         intercept.psi [k] <- logit(beta0[k])
-      # }
-        }
+  ## occupancy priors
+  for (k in 1:nspec) {
+  #   for (j in 1:nreg) {
+      beta0 [k] ~ dunif (0,1)
+      intercept.psi [k] <- logit(beta0[k])
+    # }
+  }
 
   ## regression coefficient
-        for (k in 1:nspec) {
+  for (k in 1:nspec) {
   #   for (j in 1:nreg){
-        beta1[k] ~ dnorm (mu.int[k],tau.mu[k])  
-  #      ## priors for them
+         beta1[k] ~ dnorm (mu.int[k],tau.mu[k])  
+         ## priors for them
          mu.int[k] ~ dnorm(0, 0.001)
          tau.mu[k] <- 1/(sigma.int[k]*sigma.int[k])
          sigma.int[k] ~ dunif(0,10)
-        #   }
-        }
+    #   }
+   }
 
         # Ecological submodel: Define state conditional on parameters
   for (k in 1:nspec) {
-           for(i in 1:nsite){    ## occupancy model
+     for(i in 1:nsite){    ## occupancy model
         
-                   z [i,k] ~ dbern(psi[i,k])
+        z [i,k] ~ dbern(psi[i,k])
                 
-                ## This keeps the program on the track
-      psi[i,k]<-max(0.00001,min(0.99999, psi0[i,k]))
-    
-                  logit(psi0 [i,k]) <- intercept.psi[k] + beta1 [k]* coral [i]# intercept.psi[k,reg[i]] + beta1 [k,reg[i]]
+        ## This keeps the program on the track
+        psi[i,k]<-max(0.00001,min(0.99999, psi0[i,k]))
+        
+        # likelihood 
+        logit(psi0 [i,k]) <- intercept.psi[k] + beta1 [k]* coral [i]# intercept.psi[k,reg[i]] + beta1 [k,reg[i]]
                                                   
-                   }
+        }
    }
         
-                # # # # 
-                ####### observation model
+   # # # # # # # # # # # # # # # # # # # # 
+   ####### Observation model
                 
     for (k in 1:nspec) {
                    
        for (n in 1:nobs) {              ## loop over replicated surveys
                       
-                         y [n,k] ~ dbern(muY[site[n], occa[n],k])
-                               muY [site[n], occa[n],k] <- z[site[n],k] * p[k,n]
-                               logit (p[k,n]) <-  intercept.p.obs [k,obs[n]] + intercept.depth[k,prof[n]]
+          y [n,k] ~ dbern(muY[site[n], occa[n],k])
+          muY [site[n], occa[n],k] <- z[site[n],k] * p[k,n]
+          logit (p[k,n]) <-  intercept.p.obs [k,obs[n]] + intercept.depth[k,prof[n]]
           
-       }
+         }
 
     }
         
         
-        ##############################################################
-        #                      Goodness of fit
-        ##############################################################
-        #       (based on posterior predictive distributions)       #
-        #############################################################
+    ##############################################################
+    #                      Goodness of fit
+    ##############################################################
+    #       (based on posterior predictive distributions)       #
+    #############################################################
     # Draw a replicate data set under the fitted model
+    
     for (k in 1:nspec) {
        for (n in 1:nobs){
              yrep[n,k] ~ dbern(muYrep[site [n], occa[n],k])
              muYrep [site [n], occa[n],k] <- z[site [n],k]*p[k,n]
        }
-   }
+    }
     
-        # Compute detection frequencies for observed and replicated data
-  ## the first loop is used to extract data for each site    
-  ## The outside function sum is used to aggregate data
+   # Compute detection frequencies for observed and replicated data
+   ## the first loop is used to extract data for each site    
+   ## The outside function sum is used to aggregate data
     
-  for (k in 1:nspec) {
+   for (k in 1:nspec) {
      for (i in 1:nsite) {
        for (n in 1:nobs) {
     
@@ -137,8 +134,8 @@ model {
      }
    }
     
-    ## the first loop is used to extract data for each site    
-    ## The outside function sum is used to aggregate data
+   ## the first loop is used to extract data for each site    
+   ## The outside function sum is used to aggregate data
    for (k in 1:nspec) {
       for (i in 1:nsite) {
         for (n in 1:nobs) {
@@ -152,7 +149,7 @@ model {
      }
    }
     
-    ## discrepancy statistics
+   ## discrepancy statistics
    for (k in 1:nspec) {
        for (i in 1:nsite) {
     
@@ -165,8 +162,7 @@ model {
          ftrepClosed[i,k] <- pow((sqrt(detfreqrep[i,k]) - sqrt(E[i,k])),2)
        }
     }
-    
-  
+   
   # Add up Chi-square and FT discrepancies and compute fit stat ratio
   # (closed part)
   for (k in 1:nspec) {
@@ -177,26 +173,498 @@ model {
      Chi2ratioClosed[k] <- Chi2Closed[k] / Chi2repClosed[k]
      FTratioClosed[k] <- FTClosed[k] / FTrepClosed[k]
         
-           ##
-           # Derived parameters: Sample and population occupancy, growth rate and turnover
-           mutot[k] <- sum(psi[1:nsite,k]) ## expected number of occupied sites (infinite sample)
-           n.occ[k] <- sum(z[1:nsite,k]) ## finite sample
+     ##
+     # Derived parameters: Sample and population occupancy, growth rate and turnover
+     mutot[k] <- sum(psi[1:nsite,k]) ## expected number of occupied sites (infinite sample)
+     n.occ[k] <- sum(z[1:nsite,k]) ## finite sample
      mean.p[k] <- mean (p[k,])
-  }
-     ## richness
-     for (i in 1:nsite) {
+   }
+   ## richness
+   for (i in 1:nsite) {
+   
+      rich[i] <- sum (z[i,])
      
-        rich[i] <- sum (z[i,])
+   }
      
-     }
-     
-        } # end of the model
+  } # end of the model
         
 
     ",fill = TRUE)
 
 sink()
 
+
+### MODELO PARA OS DADOS DE LONGO ET AL. 
+## 
+
+sink(here ("bugs","StaticModel_LONGO_comm_NoReg.txt"))
+cat("
+    
+model {
+        
+  # priors
+  ## priors for P
+  ## depth effect
+  for (k in 1:nspec) {
+     for (i in 1:2){ # Implicitly define alpha of depth as a vector
+       alpha.depth[k,i] ~ dunif(0,1)
+       intercept.depth[k,i] <- logit (alpha.depth[k,i])
+    #alpha0 [k] ~ dunif (0,1)
+    #intercept.p[k] <- logit(alpha0[k]) 
+     }
+  }
+   
+  ## alpha1 - effect of time on detection p
+  # it also comesfrom the community
+  for (k in 1:nspec) {
+      alpha1.time[k] ~ dnorm (mu.time[k],tau.time[k]) 
+      mu.time[k] ~ dnorm(0, 0.001)
+      tau.time[k] <- 1/(sigma.time[k]*sigma.time[k])
+      sigma.time[k] ~ dunif(0,10)
+  }
+  
+  ## occupancy priors
+  for (k in 1:nspec) {
+  #  for (j in 1:nreg) {
+        beta0 [k] ~ dunif (0,1)
+        intercept.psi [k] <- logit(beta0[k])
+    # }
+   }
+
+  ## regression coefficient
+  for (k in 1:nspec) {
+  #  for (j in 1:nreg){
+        beta1[k] ~ dnorm (mu.int[k],tau.mu[k])  
+  #     ## priors for them
+        mu.int[k] ~ dnorm(0, 0.001)
+        tau.mu[k] <- 1/(sigma.int[k]*sigma.int[k])
+        sigma.int[k] ~ dunif(0,10)
+  #   }
+  }
+
+  # Ecological submodel: Define state conditional on parameters
+  for (k in 1:nspec) {
+     for(i in 1:nsite){    ## occupancy model
+        
+        z [i,k] ~ dbern(psi[i,k])
+                
+        ## This keeps the program on the track
+        psi[i,k]<-max(0.00001,min(0.99999, psi0[i,k]))
+    
+        logit(psi0 [i,k]) <- intercept.psi[k] + beta1 [k]* coral [i]# intercept.psi[k,reg[i]] + beta1 [k,reg[i]]
+                                                  
+        }
+   }
+        
+   # # # # # # # #  # # # # 
+   ####### observation model
+                
+   for (k in 1:nspec) {
+                   
+      for (n in 1:nobs) { ## loop over replicated surveys
+                      
+         y [n,k] ~ dbern(muY[site[n], occa[n],k])
+         muY [site[n], occa[n],k] <- z[site[n],k] * p[k,n]
+         logit (p[k,n]) <-  intercept.depth[k,prof[n]]+alpha1.time[k]*time[n] # intercept.p[k]
+          
+       }
+
+    }
+        
+        
+    ##############################################################
+    #                      Goodness of fit                       #
+    ##############################################################
+    #       (based on posterior predictive distributions)       #
+    #############################################################
+    # Draw a replicate data set under the fitted model
+    for (k in 1:nspec) {
+       for (n in 1:nobs){
+          yrep[n,k] ~ dbern(muYrep[site [n], occa[n],k])
+          muYrep [site [n], occa[n],k] <- z[site [n],k]*p[k,n]
+       }
+    }
+    
+    # Compute detection frequencies for observed and replicated data
+    ## the first loop is used to extract data for each site    
+    ## The outside function sum is used to aggregate data
+    
+    for (k in 1:nspec) {
+      for (i in 1:nsite) {
+        for (n in 1:nobs) {
+    
+          y.prov [i,n,k] <- ifelse (site[n] == i, y [n,k],0)## provisorious data
+          yrep.prov [i,n,k] <- ifelse (site[n] == i, yrep [n,k],0)## provisorious data
+        
+           }
+    
+      detfreq [i,k] <- sum (y.prov[i,,k]) ## aggregate data
+      detfreqrep [i,k] <- sum (yrep.prov[i,,k]) ## aggregate data
+    
+     }
+   }
+    
+  # Expected detection frequencies under the model
+  for (k in 1:nspec) {
+     for (n in 1:nobs){
+        tmp[n,k] <- z[site[n],k] * p[k,n]
+     }
+   }
+    
+  ## the first loop is used to extract data for each site    
+  ## The outside function sum is used to aggregate data
+  for (k in 1:nspec) {
+      for (i in 1:nsite) {
+         for (n in 1:nobs) {
+    
+            E.prov [i,n,k] <- ifelse (site[n] == i, tmp [n,k],0) ## provisorious data
+            
+        }
+    
+        E [i,k] <- sum (E.prov[i,,k]) ## aggregate data
+    
+     }
+   }
+    
+  # discrepancy statistics
+  for (k in 1:nspec) {
+     for (i in 1:nsite) {
+    
+        # Chi-square and Freeman-Tukey discrepancy measures
+        # ..... for actual data set
+        x2Closed[i,k] <- pow((detfreq[i,k] - E[i,k]),2) / (E[i,k]+e)
+        ftClosed[i,k] <- pow((sqrt(detfreq[i,k]) - sqrt(E[i,k])),2)
+        # ..... for replicated data set
+        x2repClosed[i,k] <- pow((detfreqrep[i,k] - E[i,k]),2) / (E[i,k]+e)
+        ftrepClosed[i,k] <- pow((sqrt(detfreqrep[i,k]) - sqrt(E[i,k])),2)
+       }
+   }
+    
+  # Add up Chi-square and FT discrepancies and compute fit stat ratio
+  # (closed part)
+  for (k in 1:nspec) {
+     Chi2Closed[k] <- sum(x2Closed[1:nsite,k])
+     FTClosed[k] <- sum(ftClosed[1:nsite,k])
+     Chi2repClosed[k] <- sum(x2repClosed[1:nsite,k])
+     FTrepClosed[k] <- sum(ftrepClosed[1:nsite,k])
+     Chi2ratioClosed[k] <- Chi2Closed[k] / Chi2repClosed[k]
+     FTratioClosed[k] <- FTClosed[k] / FTrepClosed[k]
+        
+     ##
+     # Derived parameters: Sample and population occupancy, growth rate and turnover
+     mutot[k] <- sum(psi[1:nsite,k]) ## expected number of occupied sites (infinite sample)
+     n.occ[k] <- sum(z[1:nsite,k]) ## finite sample
+     mean.p[k] <- mean (p[k,])
+  }
+  
+  ## richness
+  for (i in 1:nsite) {
+     
+     rich[i] <- sum (z[i,])
+     
+  }
+     
+} # end of the model
+        
+
+    ",fill = TRUE)
+
+sink()
+
+#### PARTE INFERIOR
+
+#############################################
+############### load data
+#############################################
+
+## load packages
+
+source("R/packages.R")
+
+## fish data
+load (here("output","Data_fish_detection_MORAIS_AUED.RData"))
+
+## coral data
+load (here("output","Data_coral_detection_MORAIS_AUED.RData"))
+
+# coral cover data
+coral_cover_data <- sp_cover_data
+# standardize it
+coral_cover_data_std <- apply (coral_cover_data, 2, function (i)
+  (i - mean (i))/sd(i))
+
+################
+# MCMC settings
+
+ni <- 100000
+nt <- 50
+nb <- 80000
+nc <- 3
+na <- 50000
+
+###### modelo com 
+# efeito de coral no psi
+# efeito do obs no P
+# profundidade no P
+
+## Parameters to monitor
+params <- c(
+  ### detection parameters
+  "alpha.obs", "alpha.depth",
+  "intercept.p.obs", "intercept.depth",
+  
+  ### occupancy parameters
+  "beta0","intercept.psi",
+  "beta1", #"beta1.sd","beta1.tau",
+  "psi",
+  "mu.int",
+  "tau.mu",
+  
+  ## goodness of fit parameters
+  "FTratioClosed",
+  "Chi2Closed",
+  "Chi2repClosed",
+  
+  ## derived par
+  "mutot",
+  "n.occ",
+  "mean.p"
+)
+
+### aplicar o modelo a cada especie de peixe e coral
+
+cl <- makeCluster(nc) ## number of cores = generally ncores -1
+
+# exportar pacote para os cores
+clusterEvalQ(cl, library(jagsUI))
+clusterEvalQ(cl, library(vegan))
+clusterEvalQ(cl, library(here))
+
+# export your data and function
+clusterExport(cl, c("df_fish_data_per_coral", 
+                    "covariates_site",
+                    "coral_cover_data_std",
+                    "ni","nt","nb","nc","na",
+                    "params"))
+
+### run in parallel processing
+## aplicar o modelo para todas as especies de coral e de peixes. # length(coral_cover_data)
+samples_OCCcoral_PdepthObsID <- parLapply (cl, seq(1,length(df_fish_data_per_coral)), function (coral) {
+    
+    ## data- [,,1] pq eh tudo igual
+    str(jags.data<- list(y= df_fish_data_per_coral [[coral]] [,"y",], 
+                         nspec = dim(df_fish_data_per_coral [[coral]] [,"y",])[2],
+                         nsite = max (df_fish_data_per_coral [[coral]] [,"M",1]),
+                         prof= df_fish_data_per_coral [[coral]] [,"prof",1],
+                         nobs = nrow (df_fish_data_per_coral [[coral]] [,,1]),
+                         #nreg = 3,
+                         #reg = as.numeric(as.factor(covariates_site$region)),
+                         obs = df_fish_data_per_coral [[coral]] [,"ID",1],
+                         maxID = max(df_fish_data_per_coral [[coral]] [,"ID",1]),
+                         #nocca = max(df_fish_data[[i]]$J),
+                         site = df_fish_data_per_coral [[coral]] [,"M",1],
+                         occa = df_fish_data_per_coral[[coral]] [,"J",1],
+                         coral= coral_cover_data_std[,coral],
+                         e= 0.0001))
+  
+
+    ## inits
+    zst <- matrix(1,nrow=jags.data$nsite,
+                  ncol=jags.data$nspec)#aggregate (df_fish_data_per_coral[[coral]] [,"y",fish] , 
+            #     list (df_fish_data_per_coral[[coral]] [,"M",fish]),
+             #    FUN=max)$x
+    
+    # Observed occurrence as inits for z
+    #zst[zst == '-Inf'] <- 1 # max of c(NA,NA,NA) with na.rm = TRUE returns -Inf, change to 1
+    inits <- function(){list(z = zst)}
+
+    # run jags
+      
+    samples <- jags(data = jags.data, params, 
+                    model = here ("bugs","StaticModel_ID_obs_comm_NoReg.txt"), inits = inits,
+                      n.chains = nc, n.thin = nt, n.iter = ni, n.burnin = nb, 
+                      DIC = T,parallel = F)
+    
+    
+      }
+    )
+
+
+stopCluster(cl)
+
+save(samples_OCCcoral_PdepthObsID, file=here("output","samples_OCCcoral_PdepthObsID.RData"))
+
+### EXAMINE RESULTS
+## chi-square statistics
+Chi2ratioClosed <- lapply (samples_OCCcoral_PdepthObsID, function (i)
+  lapply (i, function (k)
+    k$sims.list$Chi2Closed/k$sims.list$Chi2repClosed))
+
+## bayesian p-value
+
+bvclosed <- lapply (samples_OCCcoral_PdepthObsID, function (i)
+  lapply (i, function (j)
+  (unlist(lapply (j, function (k)
+    
+    sum (k$sims.list$Chi2repClosed > k$sims.list$Chi2Closed)/
+      length(k$sims.list$Chi2repClosed)
+  )))))
+
+plot(samples_OCCcoral_PdepthObsID[[2]][[5]]$sims.list$Chi2Closed, 
+     samples_OCCcoral_PdepthObsID[[2]][[5]]$sims.list$Chi2repClosed)
+abline(1,1)
+
+#####################################################################
+#####################################################################
+
+## modelo com dados do Guilherme Longo
+
+## load packages
+source("R/packages.R")
+
+## fish data
+load (here("output","Data_fish_detection_LONGO_AUED.RData"))
+
+## coral data
+load (here("output","Data_coral_detection_LONGO_AUED.RData"))
+
+# coral cover data
+coral_cover_data <- sp_cover_data
+# standardize it
+coral_cover_data_std <- apply (coral_cover_data, 2, function (i)
+  (i - mean (i))/sd(i))
+
+## standardize time
+# all the same across species
+std_time <- (sqrt (df_fish_data_per_coral[[1]][,'time',1]) - mean(sqrt (df_fish_data_per_coral[[1]][,'time',1])))/sd(sqrt (df_fish_data_per_coral[[1]][,'time',1]))
+
+################
+# MCMC settings
+
+ni <- 100000
+nt <- 50
+nb <- 80000
+nc <- 3
+na <- 50000
+
+###### modelo com 
+# efeito de coral no psi
+# efeito do tempo no P
+# profundidade no P
+
+## Parameters to monitor
+params <- c(
+  ### detection parameters
+  #"alpha.depth",
+  "intercept.p",
+  "alpha0",
+  "alpha1.time", 
+  "mu.time","tau.time",
+  #"intercept.depth",
+  
+  ### occupancy parameters
+  "beta0","intercept.psi",
+  "beta1", #"beta1.sd","beta1.tau",
+  "psi",
+  "mu.int",
+  "tau.mu",
+  
+  ## goodness of fit parameters
+  "FTratioClosed",
+  "Chi2Closed",
+  "Chi2repClosed",
+  
+  ## derived par
+  "mutot",
+  "n.occ",
+  "mean.p"
+)
+
+### aplicar o modelo a cada especie de peixe e coral
+
+cl <- makeCluster(nc) ## number of cores = generally ncores -1
+
+# exportar pacote para os cores
+clusterEvalQ(cl, library(jagsUI))
+clusterEvalQ(cl, library(vegan))
+clusterEvalQ(cl, library(here))
+
+# export your data and function
+clusterExport(cl, c("df_fish_data_per_coral", 
+                    #"covariates_site",
+                    "coral_cover_data_std",
+                    "ni","nt","nb","nc","na",
+                    "params",
+                    "std_time"))
+
+### run in parallel processing
+## aplicar o modelo para todas as especies de coral e de peixes.
+samples_OCCcoral_PdepthTime_longo <- parLapply (cl,seq(1,length(df_fish_data_per_coral)), function (coral) {
+    
+    ## data- [,,1] pq eh tudo igual
+    str(jags.data<- list(y= df_fish_data_per_coral [[coral]] [,"y",], 
+                         nspec = dim(df_fish_data_per_coral [[coral]] [,"y",])[2],
+                         nsite = max (df_fish_data_per_coral [[coral]] [,"M",1]),
+                         prof= df_fish_data_per_coral [[coral]] [,"prof",1],
+                         nobs = nrow (df_fish_data_per_coral [[coral]] [,,1]),
+                         #nreg=3,
+                         #reg = as.numeric(as.factor(covariates_site$region)),
+                         time = std_time,
+                         #nocca = max(df_fish_data[[i]]$J),
+                         site = df_fish_data_per_coral [[coral]] [,"M",1],
+                         occa = df_fish_data_per_coral[[coral]] [,"J",1],
+                         coral= coral_cover_data_std[,coral],
+                         e= 0.0001))
+    
+    
+    ## inits
+    zst <- matrix(1,nrow=jags.data$nsite,
+                  ncol=jags.data$nspec)#aggregate (df_fish_data_per_coral[[coral]] [,"y",fish] , 
+    #     list (df_fish_data_per_coral[[coral]] [,"M",fish]),
+    #    FUN=max)$x
+    
+    # Observed occurrence as inits for z
+    #zst[zst == '-Inf'] <- 1 # max of c(NA,NA,NA) with na.rm = TRUE returns -Inf, change to 1
+    inits <- function(){list(z = zst)}
+    
+    # run jags
+    
+    samples <- jags(data = jags.data, params, 
+                    model = here ("bugs","StaticModel_LONGO_comm_NoReg.txt"), inits = inits,
+                    n.chains = nc, n.thin = nt, n.iter = ni, n.burnin = nb, 
+                    DIC = T,parallel = F)
+    
+    
+  }
+  )
+
+
+stopCluster(cl)
+
+save(samples_OCCcoral_PdepthTime_longo, file=here("output","samples_OCCcoral_PdepthTime_longo.RData"))
+
+### EXAMINE RESULTS
+## chi-square statistics
+Chi2ratioClosed <- lapply (samples_OCCcoral_PdepthObsID, function (i)
+  lapply (i, function (k)
+    k$sims.list$Chi2Closed/k$sims.list$Chi2repClosed))
+
+## bayesian p-value
+
+bvclosed <- lapply (samples_OCCcoral_PdepthObsID, function (i)
+  lapply (i, function (j)
+    (unlist(lapply (j, function (k)
+      
+      sum (k$sims.list$Chi2repClosed > k$sims.list$Chi2Closed)/
+        length(k$sims.list$Chi2repClosed)
+    )))))
+
+plot(samples_OCCcoral_PdepthObsID[[2]][[5]]$sims.list$Chi2Closed, 
+     samples_OCCcoral_PdepthObsID[[2]][[5]]$sims.list$Chi2repClosed)
+abline(1,1)
+
+
+##### DE MOLHO
 ### (MODELO 2)
 ### modelo com random effect
 ### e
@@ -683,155 +1151,6 @@ cat("
     ",fill = TRUE)
 
 sink()
-
-
-#### PARTE INFERIOR
-
-#############################################
-############### load data
-#############################################
-
-## fish data
-load (here("output","Data_fish_detection.RData"))
-
-## coral data
-load (here("output","Data_coral_detection.RData"))
-
-##### cenarios de perda de cobertura de coral
-## descontar de 20 a 80% da cobertura observada
-
-coral_cover_data <- lapply (seq(1,ncol(sp_cover_data)), function (i) {
-
- coral_cover <- cbind (original= sp_cover_data[,i], 
-      less20 = sp_cover_data[,i] * 0.80,
-      less40 = sp_cover_data[,i] * 0.60,
-      less60 = sp_cover_data[,i] * 0.40,
-      less80 = sp_cover_data[,i] * 0.20)
-})
-
-
-################
-# MCMC settings
-ni <- 30000
-nt <- 20
-nb <- 28000
-nc <- 3
-na <- 25000
-
-###### modelo com 
-# efeito de coral no psi
-# efeito do obs no P
-# profundidade no P
-
-## Parameters to monitor
-params <- c(
-  ### detection parameters
-  "alpha.obs", "alpha.depth",
-  "intercept.p.obs", "intercept.depth",
-  
-  ### occupancy parameters
-  "beta0","intercept.psi",
-  "beta1", #"beta1.sd","beta1.tau",
-  "psi",
-  "mu.int",
-  "tau.mu",
-  
-  ## goodness of fit parameters
-  "FTratioClosed",
-  "Chi2Closed",
-  "Chi2repClosed",
-  
-  ## derived par
-  "mutot",
-  "n.occ",
-  "mean.p"
-)
-
-### aplicar o modelo a cada especie de peixe e coral
-
-cl <- makeCluster(2) ## number of cores = generally ncores -1
-
-# exportar pacote para os cores
-clusterEvalQ(cl, library(jagsUI))
-clusterEvalQ(cl, library(vegan))
-clusterEvalQ(cl, library(here))
-
-# export your data and function
-clusterExport(cl, c("df_fish_data_per_coral", 
-                    "covariates_site",
-                    "coral_cover_data",
-                    "ni","nt","nb","nc","na",
-                    "params"))
-
-### run in parallel processing
-## aplicar o modelo para todas as especies de coral e de peixes.
-samples_OCCcoral_PdepthObsID <- parLapply (cl, seq(1,length(coral_cover_data)), function (coral)
-  
-  lapply (seq(1,ncol(coral_cover_data[[coral]])), function (scenario) {
-    
-    ## data- [,,1] pq eh tudo igual
-    str(jags.data<- list(y= df_fish_data_per_coral [[coral]] [,"y",], 
-                         nspec = dim(df_fish_data_per_coral [[coral]] [,"y",])[2],
-                         nsite = max (df_fish_data_per_coral [[coral]] [,"M",1]),
-                         prof= df_fish_data_per_coral [[coral]] [,"prof",1],
-                         nobs = nrow (df_fish_data_per_coral [[coral]] [,,1]),
-                         nreg = 3,
-                         reg = as.numeric(as.factor(covariates_site$region)),
-                         obs = df_fish_data_per_coral [[coral]] [,"ID",1],
-                         maxID = max(df_fish_data_per_coral [[coral]] [,"ID",1]),
-                         #nocca = max(df_fish_data[[i]]$J),
-                         site = df_fish_data_per_coral [[coral]] [,"M",1],
-                         occa = df_fish_data_per_coral[[coral]] [,"J",1],
-                         coral= ((coral_cover_data[[coral]]-mean(coral_cover_data[[coral]]))/sd(coral_cover_data[[coral]]))[,scenario],
-                         e= 0.0001))
-  
-
-    ## inits
-    zst <- matrix(1,nrow=jags.data$nsite,
-                  ncol=jags.data$nspec)#aggregate (df_fish_data_per_coral[[coral]] [,"y",fish] , 
-            #     list (df_fish_data_per_coral[[coral]] [,"M",fish]),
-             #    FUN=max)$x
-    
-    # Observed occurrence as inits for z
-    #zst[zst == '-Inf'] <- 1 # max of c(NA,NA,NA) with na.rm = TRUE returns -Inf, change to 1
-    inits <- function(){list(z = zst)}
-
-    # run jags
-      
-    samples <- jags(data = jags.data, params, 
-                    model = here ("bugs","StaticModel_ID_obs_comm_NoReg.txt"), inits = inits,
-                      n.chains = nc, n.thin = nt, n.iter = ni, n.burnin = nb, 
-                      DIC = T,parallel = F)
-    
-    
-      }
-    )
-  )
-
-
-stopCluster(cl)
-
-save(samples_OCCcoral_PdepthObsID, file=here("output","samples_OCCcoral_PdepthObsID.RData"))
-
-### EXAMINE RESULTS
-## chi-square statistics
-Chi2ratioClosed <- lapply (samples_OCCcoral_PdepthObsID, function (i)
-  lapply (i, function (k)
-    k$sims.list$Chi2Closed/k$sims.list$Chi2repClosed))
-
-## bayesian p-value
-
-bvclosed <- lapply (samples_OCCcoral_PdepthObsID, function (i)
-  lapply (i, function (j)
-  (unlist(lapply (j, function (k)
-    
-    sum (k$sims.list$Chi2repClosed > k$sims.list$Chi2Closed)/
-      length(k$sims.list$Chi2repClosed)
-  )))))
-
-plot(samples_OCCcoral_PdepthObsID[[2]][[1]][[10]]$sims.list$Chi2Closed, 
-     samples_OCCcoral_PdepthObsID[[2]][[1]][[10]]$sims.list$Chi2repClosed)
-abline(1,1)
 
 
 ###### modelo com 
