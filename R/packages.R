@@ -9,6 +9,7 @@ require(rnaturalearth)
 require(rnaturalearthdata)
 require(ggplot2)
 require(gridExtra)
+require(grid)
 require(ggrepel)
 require ("scatterpie")
 require(sf)
@@ -37,9 +38,12 @@ require(parallel)
 
 # pacote para chamar o winbugs
 require(R2WinBUGS)
+require(jagsUI)
 
 # funcoes diversas (padronizacao)
 require(vegan)
+require(cluster)
+require(ade4)
 
 
 
