@@ -11,14 +11,19 @@ source ("R/functions.R")
 
 # load basic data for naming the table dims
 ## fish data
-load (here("output","Data_fish_detection.RData"))
+load (here("output","Data_fish_detection_MORAIS_AUED.RData"))
 
 ## coral detection - with coordinates
-load (here("output","Data_coral_detection.RData"))
+load (here("output","Data_coral_detection_MORAIS_AUED.RData"))
 
 ## LOAD MODEL RESULTS
 
-load(here("output","samples_OCCcoral_PdepthObsID_NoRegion.RData")) 
+load(here("output","samples_OCCcoral_PdepthObsID.RData")) 
+
+## load trait data
+traits_peixes <- read.csv(here("data","traits","Atributos_especies_Atlantico_&_Pacifico_Oriental_2020_04_28.csv"),
+                          h=T,sep=";")
+traits_peixes$Name <- tolower (gsub (" ",".", traits_peixes$Name))
 
 # cenarios
 coral_cover_data <- lapply (seq(1,ncol(sp_cover_data)), function (i) {
@@ -30,6 +35,9 @@ coral_cover_data <- lapply (seq(1,ncol(sp_cover_data)), function (i) {
                         less80 = sp_cover_data[,i] * 0.20)
 })
 
+
+coral_species <- c(grep("Millepora",coral_species),
+              grep("Mussismilia.hispida",coral_species))
 
 ## data to use in the plot
 extracted_data <- 
@@ -48,63 +56,75 @@ extracted_data <-
 
           cenario = colnames(coral_cover_data[[coral]])[cenario],
 
-          estimate = mean (samples_OCCcoral_PdepthObsID_NoRegion[[coral]][[cenario]]$sims.list$beta1 [,fish]),
+          estimate = mean (samples_OCCcoral_PdepthObsID[[coral]][[cenario]]$sims.list$beta1 [,fish]),
   
-          low = quantile (samples_OCCcoral_PdepthObsID_NoRegion[[coral]][[cenario]]$sims.list$beta1 [,fish], 0.05),
+          low = quantile (samples_OCCcoral_PdepthObsID[[coral]][[cenario]]$sims.list$beta1 [,fish], 0.05),
 
-          high = quantile (samples_OCCcoral_PdepthObsID_NoRegion[[coral]][[cenario]]$sims.list$beta1 [,fish],0.95)
+          high = quantile (samples_OCCcoral_PdepthObsID[[coral]][[cenario]]$sims.list$beta1 [,fish],0.95)
 
 )
 )
 )
 ))
 
-teste <- do.call (rbind, extracted_data[[1]])
+dodge <- c(0.2,0.7)
 
-teste$cenario<-factor(teste$cenario,
+lapply (seq (1,length(extracted_data)), function (i) {
+  
+  teste <- do.call (rbind, extracted_data[[i]])
+
+  teste$cenario<-factor(teste$cenario,
        levels = c("less80","less60","less40","less20","original"))
+  teste <- teste[-which(teste$cenario=="less60"),]
 
+  ## organizar nomes das spp no eixo Y
+  ## subset de millepora 
+  subset1 <- traits_peixes[which(traits_peixes$Name %in% unique (teste$peixe)),c("Name", "Body_size", "Diet")]
+  subset1$Body_size <- as.numeric (gsub (",","." ,subset1$Body_size))
+  subset1 <- subset1 [order (subset1$Body_size,decreasing=F),]
+  # organizing species according to size
+  teste <- teste[order(match(teste$peixe,subset1$Name)),]
+  teste$peixe <- factor (teste$peixe,
+                         levels = unique(teste$peixe))
+  
+  # plot
+  pd <- position_dodge(dodge[i])
 
-require(ggplot2)
-pd <- position_dodge(.2)
-
-a <- ggplot (teste, aes  (y=peixe, x=estimate, fill=cenario,
+  a <- ggplot (teste, aes  (y=peixe, x=estimate, fill=cenario,
                                         colour=cenario)) + 
-  geom_errorbar(aes(xmin=low,xmax=high),width = .3,
+    geom_errorbar(aes(xmin=low,xmax=high),width = .3,
                 position=pd) + theme_classic() + 
-  geom_point(aes(estimate),size=2,position=pd) + 
-  geom_vline(xintercept = 0, linetype="dashed", 
+    geom_point(aes(estimate),size=2,position=pd) + 
+    geom_vline(xintercept = 0, linetype="dashed", 
              color = "gray50", size=0.5)+
-  scale_color_manual(values=c("gray70", "gray60", "gray50",
+    scale_color_manual(values=c("gray70", "gray60", "gray50",
                               "gray40","black")) + 
-  xlab("Regression coefficient estimate") + 
-  ylab ("Reef fish species") + 
-  xlim(-20, 20)
+    xlab("Regression coefficient estimate") + 
+    ylab ("Reef fish species") + 
+    xlim(-30, 30)
   
 
-# regression shapes
+  # regression shapes
 
-data_shape <- lapply (c (-10,-2,0,2,10), function (i)
+  data_shape <- lapply (c (-8,-2,0,2,8), function (i)
   
             data.frame (cc=seq(-2,2,0.1),
                           rel=plogis ( 0 + i * seq(-2,2,0.1)))
-)
+  )
 
 
-plot_eff <- lapply (data_shape, function (i)
+  plot_eff <- lapply (data_shape, function (i)
   
   ggplot (i, aes (x=cc,y=rel)) + 
   geom_line(size=2) + theme_classic() + 
   theme (axis.title = element_blank(),
          axis.text = element_blank(),
          axis.ticks = element_blank()) 
-)
+  )
 
-library(ggplot2)
-library(gridExtra)
-library(grid)
-
-grid.arrange(
+  
+  pdf (file=here("output", paste (i,"morais.pdf",sep="_")),width=7,heigh=6)
+  grid.arrange(
   plot_eff [[1]],
   plot_eff [[2]], 
   plot_eff [[3]],
@@ -120,18 +140,352 @@ grid.arrange(
                          c(6,6,6,6,6,6,6,6,6),
                          c(6,6,6,6,6,6,6,6,6)))
 
-grid.text("% of coral cover", 
+  grid.text("% of coral cover", 
           x = unit(0.5, "npc"), 
           y = unit(.86, "npc"),gp = gpar(fontsize=8))
 
-grid.text(expression (psi['i']), 
+  grid.text("Site-occupancy\nprobability",# 
           x = unit(0.22, "npc"), 
           y = unit(.94, "npc"),
-          gp = gpar(fontsize=10),
+          gp = gpar(fontsize=8),
           rot=90)
 
+dev.off()
+})
 
+## the functional space
+
+# adjusting trait values
+traits_peixes$Body_size <- as.numeric(gsub (",",".",traits_peixes$Body_size))
+traits_peixes$Aspect_ratio <- as.numeric(gsub (",",".",traits_peixes$Aspect_ratio))
+
+# subsetting traits
+
+k = 2 # coral species 
+
+coef_fish <- do.call (rbind, extracted_data[[k]])
+
+coef_fish$cenario<-factor(coef_fish$cenario,
+                      levels = c("less80","less60","less40","less20","original"))
+coef_fish <- coef_fish[-which(coef_fish$cenario=="less60"),]
+
+subset1 <- traits_peixes [which(traits_peixes$Name %in% unique(coef_fish$peixe)),c("Name","Body_size", 
+                                                                        "Size_group",
+                                                                        "Aspect_ratio")]
+
+subset1$Size_group <- sapply(subset1$Size_group , function(x) {if (x=="sol") {1} 
+  else if (x=="pair") {2} 
+  else if (x=="smallg") {3} 
+  else if (x=="medg") {4} 
+  else if (x=="largeg") {5}}
+)
+subset1$Size_group <-ordered (subset1$Size_group)
+rownames(subset1) <- subset1$Name; subset1<- subset1[,-1]
+
+# first calculate gower distance on traits
+gower_matrix <- daisy (subset1, metric=c("gower")) 
+
+# Building the functional space based on a PCOA 
+pco<-dudi.pco(quasieuclid(gower_matrix), scannf=F, nf=10) # quasieuclid() transformation to make the gower matrix as euclidean. nf= number of axis 
+barplot(pco$eig) # barplot of eigenvalues for each axis 
+(Inertia2<-(pco$eig[1]+pco$eig[2]) /(sum(pco$eig))) # percentage of inertia explained by the two first axes
+
+##
+
+all <- cbind (pco$li[,1:2],ext = F)
+a <- all [chull(all[,1:2], y = NULL),]
+
+## extracted data of impaired species
+fuck_sp <- unlist(lapply (seq (1,length(extracted_data[[k]])), function (i)
+  ifelse (extracted_data[[k]][[i]]$low[1] >0 &
+          extracted_data[[k]][[i]]$low[5] <0,unique(extracted_data[[k]][[i]]$peixe),
+        NA)
+))
+
+## those that decrease fastly with coral loss
+fuck_sp_neg <- unlist(lapply (seq (1,length(extracted_data[[k]])), function (i)
+  ifelse (extracted_data[[k]][[i]]$estimate[1] > extracted_data[[k]][[i]]$estimate[5] &
+                       extracted_data[[k]][[i]]$high[5] < 0,unique(extracted_data[[k]][[i]]$peixe),
+        NA)))
+
+fuck_sp_all <- unique(c(fuck_sp, fuck_sp_neg))
+
+# 
+setB<-cbind(all, ext1=ifelse(rownames(all) %in% fuck_sp_all,T,F))
+pk <-setB[which(setB$ext1==T),]
+f <- pk [chull(pk, y = NULL),]
+
+## plot A
+plotA <- ggplot(a, aes(A1, A2)) + 
+  geom_point() + theme_bw()+
+  geom_polygon(data=a, aes (A1,A2),alpha=0.8,fill="black") + 
+  geom_polygon(data=f, aes (A1,A2,group=ext1, fill=ext1),alpha=0.8,fill="gray",size=3)
+
+plotA
+
+## correlations
+subset1$Size_group <- as.numeric (subset1$Size_group)
+cor (pco$li[is.na(subset1$Aspect_ratio) !=T,1:2],
+     subset1[is.na(subset1$Aspect_ratio) !=T,])
+
+pdf(file=here("output","Fspace.pdf"))
+plotA + geom_segment(aes(x = 0, y = 0, xend = -0.1, yend = -0.35),size = 2,
+             arrow = arrow(length = unit(.5, "cm"))) + 
+  annotate(geom="text",x=-.1,y=-0.37,label="Body size") + 
+  geom_segment(aes(x = 0, y = 0, xend = -0.35, yend = 0.06),size = 2,
+               arrow = arrow(length = unit(.5, "cm"))) + 
+  annotate(geom="text",x=-.36,y=0.1,label="Size group") +
+  geom_segment(aes(x = 0, y = 0, xend = -0.3, yend = -0.25),size = 2,
+               arrow = arrow(length = unit(.5, "cm"))) + 
+  annotate(geom="text",x=-.39,y=-0.25,label="Aspect ratio")
+dev.off()
 ####
+## The same  for Longo et al. 
+
+# load packages and functions
+source ("R/packages.R")
+source ("R/functions.R")
+
+# load basic data for naming the table dims
+## fish data
+load (here("output","Data_fish_detection_LONGO_AUED.RData"))
+
+## coral detection - with coordinates
+load (here("output","Data_coral_detection_LONGO_AUED.RData"))
+
+## LOAD MODEL RESULTS
+
+load(here("output","samples_OCCcoral_PdepthTime_longo.RData")) 
+
+## load trait data
+traits_peixes <- read.csv(here("data","traits","Atributos_especies_Atlantico_&_Pacifico_Oriental_2020_04_28.csv"),
+                          h=T,sep=";")
+traits_peixes$Name <- tolower (gsub (" ",".", traits_peixes$Name))
+
+# cenarios
+coral_cover_data <- lapply (seq(1,ncol(sp_cover_data)), function (i) {
+  
+  coral_cover <- cbind (original= sp_cover_data[,i], 
+                        less20 = sp_cover_data[,i] * 0.80,
+                        less40 = sp_cover_data[,i] * 0.60,
+                        less60 = sp_cover_data[,i] * 0.40,
+                        less80 = sp_cover_data[,i] * 0.20)
+})
+
+
+coral_species <- c(grep("Millepora",coral_species),
+                   grep("Mussismilia.hispida",coral_species))
+
+## data to use in the plot
+extracted_data <- 
+  
+  lapply (seq(1,length(coral_species)), function (coral)
+    
+    lapply (seq (1, length (fish_species [[coral]])), function (fish)
+      
+      do.call(rbind, lapply (seq (1,length(colnames(coral_cover_data[[coral]]))), function (cenario)
+        
+        data.frame (
+          
+          coral = coral_species[coral],
+          
+          peixe = fish_species [[coral]][fish],
+          
+          scenario = colnames(coral_cover_data[[coral]])[cenario],
+          
+          estimate = mean (samples_OCCcoral_PdepthTime_longo[[coral]][[cenario]]$sims.list$beta1 [,fish]),
+          
+          low = quantile (samples_OCCcoral_PdepthTime_longo[[coral]][[cenario]]$sims.list$beta1 [,fish], 0.05),
+          
+          high = quantile (samples_OCCcoral_PdepthTime_longo[[coral]][[cenario]]$sims.list$beta1 [,fish],0.95)
+          
+        )
+      )
+      )
+    ))
+
+
+
+lapply (seq (1,length(extracted_data)), function (i) {
+  
+  teste <- do.call (rbind, extracted_data[[i]])
+  
+  teste$scenario<-factor(teste$scenario,
+                        levels = c("less80","less60","less40","less20","original"))
+  teste <- teste[-which(teste$scenario=="less60"),]
+  
+  ## organizar nomes das spp no eixo Y
+  ## subset de millepora 
+  subset1 <- traits_peixes[which(traits_peixes$Name %in% unique (teste$peixe)),c("Name", "Body_size", "Diet")]
+  subset1$Body_size <- as.numeric (gsub (",","." ,subset1$Body_size))
+  subset1 <- subset1 [order (subset1$Body_size,decreasing=F),]
+  # organizing species according to size
+  teste <- teste[order(match(teste$peixe,subset1$Name)),]
+  teste$peixe <- factor (teste$peixe,
+                         levels = unique(teste$peixe))
+  # plot
+  pd <- position_dodge(.5)
+  
+  a <- ggplot (teste, aes  (y=peixe, x=estimate, fill=scenario,
+                            colour=scenario)) + 
+    geom_errorbar(aes(xmin=low,xmax=high),width = .3,
+                  position=pd) + theme_classic() + 
+    geom_point(aes(estimate),size=2,position=pd) + 
+    geom_vline(xintercept = 0, linetype="dashed", 
+               color = "gray50", size=0.5)+
+    scale_color_manual(values=c("gray70", "gray60", "gray50",
+                                "gray40","black")) + 
+    xlab("Regression coefficient estimate") + 
+    ylab ("Reef fish species") + 
+    xlim(-18, 18)
+  
+  
+  # regression shapes
+  
+  data_shape <- lapply (c (-8,-2,0,2,8), function (i)
+    
+    data.frame (cc=seq(-2,2,0.1),
+                rel=plogis ( 0 + i * seq(-2,2,0.1)))
+  )
+  
+  
+  plot_eff <- lapply (data_shape, function (i)
+    
+    ggplot (i, aes (x=cc,y=rel)) + 
+      geom_line(size=2) + theme_classic() + 
+      theme (axis.title = element_blank(),
+             axis.text = element_blank(),
+             axis.ticks = element_blank()) 
+  )
+  
+  
+  pdf (file=here("output", paste (i,"longo.pdf",sep="_")),width=7,heigh=7)
+  grid.arrange(
+    plot_eff [[1]],
+    plot_eff [[2]], 
+    plot_eff [[3]],
+    plot_eff [[4]],
+    plot_eff [[5]],
+    a,
+    ncol=9,nrow=7, 
+    layout_matrix = rbind (c(NA,NA,1,2,3,4,5,NA,NA),
+                           c(6,6,6,6,6,6,6,6,6),
+                           c(6,6,6,6,6,6,6,6,6),
+                           c(6,6,6,6,6,6,6,6,6),
+                           c(6,6,6,6,6,6,6,6,6),
+                           c(6,6,6,6,6,6,6,6,6),
+                           c(6,6,6,6,6,6,6,6,6)))
+  
+  grid.text("% of coral cover", 
+            x = unit(0.5, "npc"), 
+            y = unit(.86, "npc"),gp = gpar(fontsize=8))
+  
+  grid.text("Site-occupancy\nprobability",# 
+            x = unit(0.22, "npc"), 
+            y = unit(.94, "npc"),
+            gp = gpar(fontsize=8),
+            rot=90)
+  
+  dev.off()
+})
+
+
+### fucked species
+
+## the functional space
+
+# adjusting trait values
+traits_peixes$Body_size <- as.numeric(gsub (",",".",traits_peixes$Body_size))
+traits_peixes$Aspect_ratio <- as.numeric(gsub (",",".",traits_peixes$Aspect_ratio))
+
+# subsetting traits
+
+k = 2 # coral species 
+
+coef_fish <- do.call (rbind, extracted_data[[k]])
+
+coef_fish$scenario<-factor(coef_fish$scenario,
+                          levels = c("less80","less60","less40","less20","original"))
+coef_fish <- coef_fish[-which(coef_fish$scenario=="less60"),]
+
+subset1 <- traits_peixes [which(traits_peixes$Name %in% unique(coef_fish$peixe)),c("Name","Body_size", 
+                                                                                   "Size_group",
+                                                                                   "Aspect_ratio")]
+
+subset1$Size_group <- sapply(subset1$Size_group , function(x) {if (x=="sol") {1} 
+  else if (x=="pair") {2} 
+  else if (x=="smallg") {3} 
+  else if (x=="medg") {4} 
+  else if (x=="largeg") {5}}
+)
+subset1$Size_group <-ordered (subset1$Size_group)
+rownames(subset1) <- subset1$Name; subset1<- subset1[,-1]
+
+# first calculate gower distance on traits
+gower_matrix <- daisy (subset1, metric=c("gower")) 
+
+# Building the functional space based on a PCOA 
+pco<-dudi.pco(quasieuclid(gower_matrix), scannf=F, nf=10) # quasieuclid() transformation to make the gower matrix as euclidean. nf= number of axis 
+barplot(pco$eig) # barplot of eigenvalues for each axis 
+(Inertia2<-(pco$eig[1]+pco$eig[2]) /(sum(pco$eig))) # percentage of inertia explained by the two first axes
+
+##
+
+all <- cbind (pco$li[,1:2],ext = F)
+a <- all [chull(all[,1:2], y = NULL),]
+
+## extracted data of impaired species
+fuck_sp <- unlist(lapply (seq (1,length(extracted_data[[k]])), function (i)
+  ifelse (extracted_data[[k]][[i]]$low[1] >0 &
+            extracted_data[[k]][[i]]$low[5] <0,unique(extracted_data[[k]][[i]]$peixe),
+          NA)
+))
+
+## those that decrease fastly with coral loss
+fuck_sp_neg <- unlist(lapply (seq (1,length(extracted_data[[k]])), function (i)
+  ifelse (extracted_data[[k]][[i]]$estimate[1] > extracted_data[[k]][[i]]$estimate[5] &
+            extracted_data[[k]][[i]]$high[5] < 0,unique(extracted_data[[k]][[i]]$peixe),
+          NA)))
+
+fuck_sp_all <- unique(c(fuck_sp, fuck_sp_neg))
+
+# 
+setB<-cbind(all, ext1=ifelse(rownames(all) %in% fuck_sp_all,T,F))
+pk <-setB[which(setB$ext1==T),]
+f <- pk [chull(pk, y = NULL),]
+
+## plot A
+plotA <- ggplot(a, aes(A1, A2)) + 
+  geom_point() + theme_bw()+
+  geom_polygon(data=a, aes (A1,A2),alpha=0.8,fill="black") + 
+  geom_polygon(data=f, aes (A1,A2,group=ext1, fill=ext1),alpha=0.8,fill="gray",size=3)
+
+plotA
+
+## correlations
+subset1$Size_group <- as.numeric (subset1$Size_group)
+cor (pco$li[is.na(subset1$Aspect_ratio) !=T,1:2],
+     subset1[is.na(subset1$Aspect_ratio) !=T,])
+
+pdf(file=here("output","Fspace_longo.pdf"))
+plotA + geom_segment(aes(x = 0, y = 0, xend = 0.35, yend = 0.35),size = 2,
+                     arrow = arrow(length = unit(.5, "cm"))) + 
+  annotate(geom="text",x=0.3,y=0.37,label="Body size") + 
+  geom_segment(aes(x = 0, y = 0, xend = -0.35, yend = 0.00),size = 2,
+               arrow = arrow(length = unit(.5, "cm"))) + 
+  annotate(geom="text",x=-.32,y=-0.03,label="Size group") +
+  geom_segment(aes(x = 0, y = 0, xend = -0.3, yend = 0.35),size = 2,
+               arrow = arrow(length = unit(.5, "cm"))) + 
+  annotate(geom="text",x=-.25,y=0.37,label="Aspect ratio")
+dev.off()
+####
+
+
+
+
+
+
+
 
 
 
