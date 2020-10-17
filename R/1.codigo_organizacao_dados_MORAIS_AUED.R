@@ -73,7 +73,8 @@ barplot_function (df1= bentos,#bentos
 traits_peixes <- read.csv(here("data","traits","Atributos_especies_Atlantico_&_Pacifico_Oriental_2020_04_28.csv"),
                           h=T,sep=";")
 sp_fundo_sed <- traits_peixes [which(traits_peixes$Home_range %in% c("sed","mob") & 
-                                       traits_peixes$Level_water %in% c("low","bottom")),]
+                                       traits_peixes$Level_water %in% c("low","bottom") &
+                                       traits_peixes$Diel_activity %in% c("day","both")),]
 ## filtrando familias
 
 sp_fundo_sed_fam <- sp_fundo_sed [which(sp_fundo_sed$Family %in% c("acanthuridae", "apogonidae", "blenniidae",
@@ -578,7 +579,6 @@ arranjo_cob_coral_sitio_video <-   array(unlist(tab_completa_site_ocasiao_coral)
 ## ajustar os nomes
 #dimnames(arranjo_cob_coral_sitio_video)[[3]][1] <- "Agaricia.spp"
 
-
 ## transformar cobertura em dado binario (deteccao e nao deteccao do coral k no sitio i, video j)
 arranjo_corais <- arranjo_cob_coral_sitio_video
 ## remover dados do video 16 (que nao tem dados)
@@ -597,17 +597,19 @@ for (i in 1:dim(arranjo_corais)[3]) {
   
 }
 
+shell_array [is.nan (shell_array)] <-  0
 ## maximo de cobertura detectado em um video
 ## NA porque em alguns sitios nao foi registrado nada de coral
-sp_cover_data <- apply (shell_array,c(1,3),max,na.rm=T)
+sp_cover_data <- apply (shell_array,c(1,3),mean,na.rm=T)
 # infinite  eh gerado para os locais onde nao tem  nada de coral
-sp_cover_data [is.infinite (sp_cover_data)] <-  0
+
 colnames(sp_cover_data) <- dimnames(arranjo_corais )[[3]]
+
 
 ## remover spp que ocorreram em poucos locais (menos min_sites)
 
 site_coral_detection <- ifelse (sp_cover_data>0,1,0)
-min_sites <- 6
+min_sites <- round(nrow(site_coral_detection)*0.2)
 
 ## na cobertura em relacao ao total
 sp_cover_data <- sp_cover_data[,which(colSums (site_coral_detection)>=min_sites)]
