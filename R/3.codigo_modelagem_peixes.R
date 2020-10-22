@@ -19,9 +19,9 @@
 #######################################
 ## modelo com efeito de observador (MODELO 1)
 ## definir o modelo, em linguagem  JAGS
+require(here)
 
-
-sink(here ("bugs","StaticModel_ID_obs_comm_NoReg.txt"))
+sink(here ("bugs","StaticModel_ID_obs_comm_RdmP.txt"))
 cat("
     
 model {
@@ -44,6 +44,22 @@ model {
      }
    }
   
+  ## random effect for transect
+  for (k in 1:nspec){
+     alpha0[k] ~ dunif (0,1)
+     lalpha0[k] <- logit (alpha0[k])
+     sd.p[k] ~ dunif (0,10) ## sd of p on logit scale
+     tau.p[k] <- pow (sd.p[k],2)## p precision on logit scale
+  }
+  
+  # one estimate per transect
+  for (k in 1:nspec) {
+     for (j in 1:nocca){
+       logit (intercept.p [k,j]) <- lp [k,j]
+       lp[k,j] ~ dnorm (lalpha0[k],tau.p[k]) 
+     }
+  }
+
   ## occupancy priors
   for (k in 1:nspec) {
   #   for (j in 1:nreg) {
@@ -63,7 +79,7 @@ model {
     #   }
    }
 
-        # Ecological submodel: Define state conditional on parameters
+  # Ecological submodel: Define state conditional on parameters
   for (k in 1:nspec) {
      for(i in 1:nsite){    ## occupancy model
         
@@ -87,7 +103,7 @@ model {
                       
           y [n,k] ~ dbern(muY[site[n], occa[n],k])
           muY [site[n], occa[n],k] <- z[site[n],k] * p[k,n]
-          logit (p[k,n]) <-  intercept.p.obs [k,obs[n]] + intercept.depth[k,prof[n]]
+          logit (p[k,n]) <-  intercept.p.obs [k,obs[n]] + intercept.depth[k,prof[n]] + intercept.p[k,occa[n]]
           
          }
 
@@ -197,7 +213,7 @@ sink()
 ### MODELO PARA OS DADOS DE LONGO ET AL. 
 ## 
 
-sink(here ("bugs","StaticModel_LONGO_comm_NoReg.txt"))
+sink(here ("bugs","StaticModel_LONGO_comm_RdmP.txt"))
 cat("
     
 model {
@@ -223,6 +239,22 @@ model {
       sigma.time[k] ~ dunif(0,10)
   }
   
+  ## random effect for video
+  for (k in 1:nspec){
+     alpha0[k] ~ dunif (0,1)
+     lalpha0[k] <- logit (alpha0[k])
+     sd.p[k] ~ dunif (0,10) ## sd of p on logit scale
+     tau.p[k] <- pow (sd.p[k],2)## p precision on logit scale
+  }
+  
+  # one estimate per transect
+  for (k in 1:nspec) {
+     for (j in 1:nocca){
+       logit (intercept.p [k,j]) <- lp [k,j]
+       lp[k,j] ~ dnorm (lalpha0[k],tau.p[k])
+     }
+  }
+
   ## occupancy priors
   for (k in 1:nspec) {
   #  for (j in 1:nreg) {
@@ -265,7 +297,7 @@ model {
                       
          y [n,k] ~ dbern(muY[site[n], occa[n],k])
          muY [site[n], occa[n],k] <- z[site[n],k] * p[k,n]
-         logit (p[k,n]) <-  intercept.depth[k,prof[n]]+alpha1.time[k]*time[n] # intercept.p[k]
+         logit (p[k,n]) <-  intercept.depth[k,prof[n]]+alpha1.time[k]*time[n] + intercept.p[k, occa[n]]
           
        }
 
@@ -514,6 +546,106 @@ plot(samples_OCCcoral_PdepthObsID[[2]][[5]]$sims.list$Chi2Closed,
      samples_OCCcoral_PdepthObsID[[2]][[5]]$sims.list$Chi2repClosed)
 abline(1,1)
 
+###############################
+## random factor for transects
+
+################
+# MCMC settings
+
+ni <- 100000
+nt <- 50
+nb <- 80000
+nc <- 3
+na <- 50000
+
+## Parameters to monitor
+params <- c(
+  ### detection parameters
+  "alpha.obs", "alpha.depth",
+  "intercept.p.obs", "intercept.depth",
+  "intercept.p","lp","tau.p", "lalpha0","alpha0",
+  
+  ### occupancy parameters
+  "beta0","intercept.psi",
+  "beta1", 
+  "psi",
+  "mu.int",
+  "tau.mu",
+  
+  ## goodness of fit parameters
+  "FTratioClosed",
+  "Chi2Closed",
+  "Chi2repClosed",
+  
+  ## derived par
+  "mutot",
+  "n.occ",
+  "mean.p"
+)
+
+### aplicar o modelo a cada especie de peixe e coral
+
+cl <- makeCluster(nc) ## number of cores = generally ncores -1
+
+# exportar pacote para os cores
+clusterEvalQ(cl, library(jagsUI))
+clusterEvalQ(cl, library(vegan))
+clusterEvalQ(cl, library(here))
+
+# export your data and function
+clusterExport(cl, c("df_fish_data_per_coral", 
+                    "covariates_site",
+                    "coral_cover_data_std",
+                    "ni","nt","nb","nc","na",
+                    "params"))
+
+### run in parallel processing
+## aplicar o modelo para todas as especies de coral e de peixes. # length(coral_cover_data)
+samples_OCCcoral_PdepthObsID_RdmP <- parLapply (cl, seq(1,length(df_fish_data_per_coral)), function (coral) {
+  
+  ## data- [,,1] pq eh tudo igual
+  str(jags.data<- list(y= df_fish_data_per_coral [[coral]] [,"y",], 
+                       nspec = dim(df_fish_data_per_coral [[coral]] [,"y",])[2],
+                       nsite = max (df_fish_data_per_coral [[coral]] [,"M",1]),
+                       prof= df_fish_data_per_coral [[coral]] [,"prof",1],
+                       nobs = nrow (df_fish_data_per_coral [[coral]] [,,1]),
+                       #nreg = 3,
+                       #reg = as.numeric(as.factor(covariates_site$region)),
+                       obs = df_fish_data_per_coral [[coral]] [,"ID",1],
+                       maxID = max(df_fish_data_per_coral [[coral]] [,"ID",1]),
+                       nocca = max(df_fish_data_per_coral[[coral]][,"J",1]),
+                       site = df_fish_data_per_coral [[coral]] [,"M",1],
+                       occa = df_fish_data_per_coral[[coral]] [,"J",1],
+                       coral= coral_cover_data_std[,coral],
+                       e= 0.0001))
+  
+  
+  ## inits
+  zst <- matrix(1,nrow=jags.data$nsite,
+                ncol=jags.data$nspec)#aggregate (df_fish_data_per_coral[[coral]] [,"y",fish] , 
+  #     list (df_fish_data_per_coral[[coral]] [,"M",fish]),
+  #    FUN=max)$x
+  
+  # Observed occurrence as inits for z
+  #zst[zst == '-Inf'] <- 1 # max of c(NA,NA,NA) with na.rm = TRUE returns -Inf, change to 1
+  inits <- function(){list(z = zst)}
+  
+  # run jags
+  
+  samples <- jags(data = jags.data, params, 
+                  model = here ("bugs","StaticModel_ID_obs_comm_RdmP.txt"), inits = inits,
+                  n.chains = nc, n.thin = nt, n.iter = ni, n.burnin = nb, 
+                  DIC = T,parallel = F)
+  
+  
+}
+)
+
+
+stopCluster(cl)
+
+save(samples_OCCcoral_PdepthObsID_RdmP, file=here("output","samples_OCCcoral_PdepthObsID_RdmP.RData"))
+
 #####################################################################
 #####################################################################
 
@@ -555,12 +687,10 @@ na <- 50000
 ## Parameters to monitor
 params <- c(
   ### detection parameters
-  #"alpha.depth",
-  "intercept.p",
   "alpha0",
   "alpha1.time", 
   "mu.time","tau.time",
-  #"intercept.depth",
+  "intercept.depth","alpha.depth",
   
   ### occupancy parameters
   "beta0","intercept.psi",
@@ -662,6 +792,126 @@ bvclosed <- lapply (samples_OCCcoral_PdepthObsID, function (i)
 plot(samples_OCCcoral_PdepthObsID[[2]][[5]]$sims.list$Chi2Closed, 
      samples_OCCcoral_PdepthObsID[[2]][[5]]$sims.list$Chi2repClosed)
 abline(1,1)
+
+#####################################################################
+### RANDOM EFFECT OF VIDEO
+
+################
+# MCMC settings
+
+ni <- 100000
+nt <- 50
+nb <- 80000
+nc <- 3
+na <- 50000
+
+###### modelo com 
+# efeito de coral no psi
+# efeito do tempo no P
+# profundidade no P
+
+## Parameters to monitor
+params <- c(
+  ### detection parameters
+  "alpha0",
+  "alpha1.time", 
+  "mu.time","tau.time",
+  "alpha.depth", "intercept.depth",
+  "intercept.p","lp","tau.p", "lalpha0","alpha0",
+  
+  ### occupancy parameters
+  "beta0","intercept.psi",
+  "beta1", #"beta1.sd","beta1.tau",
+  "psi",
+  "mu.int",
+  "tau.mu",
+  
+  ## goodness of fit parameters
+  "FTratioClosed",
+  "Chi2Closed",
+  "Chi2repClosed",
+  
+  ## derived par
+  "mutot",
+  "n.occ",
+  "mean.p"
+)
+
+### aplicar o modelo a cada especie de peixe e coral
+
+cl <- makeCluster(nc) ## number of cores = generally ncores -1
+
+# exportar pacote para os cores
+clusterEvalQ(cl, library(jagsUI))
+clusterEvalQ(cl, library(vegan))
+clusterEvalQ(cl, library(here))
+
+# export your data and function
+clusterExport(cl, c("df_fish_data_per_coral", 
+                    #"covariates_site",
+                    "coral_cover_data_std",
+                    "ni","nt","nb","nc","na",
+                    "params",
+                    "std_time"))
+
+### run in parallel processing
+## aplicar o modelo para todas as especies de coral e de peixes.
+samples_OCCcoral_PdepthTime_longo_RdmP <- parLapply (cl,seq(1,length(df_fish_data_per_coral)), function (coral) {
+  
+  ## data- [,,1] pq eh tudo igual
+  str(jags.data<- list(y= df_fish_data_per_coral [[coral]] [,"y",], 
+                       nspec = dim(df_fish_data_per_coral [[coral]] [,"y",])[2],
+                       nsite = max (df_fish_data_per_coral [[coral]] [,"M",1]),
+                       prof= df_fish_data_per_coral [[coral]] [,"prof",1],
+                       nobs = nrow (df_fish_data_per_coral [[coral]] [,,1]),
+                       #nreg=3,
+                       #reg = as.numeric(as.factor(covariates_site$region)),
+                       time = std_time,
+                       nocca = max(df_fish_data_per_coral[[coral]] [,"J",1]),
+                       site = df_fish_data_per_coral [[coral]] [,"M",1],
+                       occa = df_fish_data_per_coral[[coral]] [,"J",1],
+                       coral= coral_cover_data_std[,coral],
+                       e= 0.0001))
+  
+  
+  ## inits
+  zst <- matrix(1,nrow=jags.data$nsite,
+                ncol=jags.data$nspec)#aggregate (df_fish_data_per_coral[[coral]] [,"y",fish] , 
+  #     list (df_fish_data_per_coral[[coral]] [,"M",fish]),
+  #    FUN=max)$x
+  
+  # Observed occurrence as inits for z
+  #zst[zst == '-Inf'] <- 1 # max of c(NA,NA,NA) with na.rm = TRUE returns -Inf, change to 1
+  inits <- function(){list(z = zst)}
+  
+  # run jags
+  
+  samples <- jags(data = jags.data, params, 
+                  model = here ("bugs","StaticModel_LONGO_comm_RdmP.txt"), inits = inits,
+                  n.chains = nc, n.thin = nt, n.iter = ni, n.burnin = nb, 
+                  DIC = T,parallel = F)
+  
+  
+}
+)
+
+stopCluster(cl)
+
+save(samples_OCCcoral_PdepthTime_longo_RdmP, file=here("output","samples_OCCcoral_PdepthTime_longo_RdmP.RData"))
+
+
+####################################################################################
+####################################################################################
+####################################################################################
+####################################################################################
+####################################################################################
+####################################################################################
+####################################################################################
+####################################################################################
+####################################################################################
+####################################################################################
+####################################################################################
+####################################################################################
 
 
 ##### DE MOLHO
