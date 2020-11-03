@@ -756,7 +756,54 @@ fish_species <- lapply (over_peixe_coral, function (i)
   especie[which(i == T)]
   
 )
+ 
+## basic statistics
+
+mean(table(df_fish_data_per_coral[[1]][,"ID",1]))
+sd(table(df_fish_data_per_coral[[1]][,"ID",1]))
+range((table(df_fish_data_per_coral[[1]][,"ID",1])))
+
+## av number of det per fish
+
+mean (
+  unlist(
+    lapply (seq (1,length(df_fish_data_per_coral)), function (k)
   
+      lapply (seq (1,dim(df_fish_data_per_coral[[k]])[3]), function (i)
+
+        sum(df_fish_data_per_coral[[k]][,"y",i])
+    )
+   )
+  )
+)
+
+
+sd (
+  unlist(
+    lapply (seq (1,length(df_fish_data_per_coral)), function (k)
+      
+      lapply (seq (1,dim(df_fish_data_per_coral[[k]])[3]), function (i)
+        
+        sum(df_fish_data_per_coral[[k]][,"y",i])
+      )
+    )
+  )
+)
+
+## most detected spp
+most_det <- unlist(lapply (seq (1,length(df_fish_data_per_coral)), function (k)
+  lapply (seq (1,dim(df_fish_data_per_coral[[k]])[3]), function (i)
+  
+  sum(df_fish_data_per_coral[[k]][,"y",i])
+  
+)))
+
+most_det <- data.frame (ndet=most_det,
+                        sp = unlist(fish_species))
+         
+most_det <- most_det[order(most_det$ndet,decreasing=T),]               
+write.table (most_det, file = here("output","most_detUVS.csv"))
+
 ###############################################
 # # # # # # # # #  SAVE # # # # # # # # # # # #
 ###############################################

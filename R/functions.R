@@ -95,5 +95,12 @@ wm <- ggplot() +
   xlab("Longitude") + ylab("Latitude") 
 
 
+## toupper for species names
+
+firstup <- function(x) {
+  substr(x, 1, 1) <- toupper(substr(x, 1, 1))
+  x
+}
+
 
 
