@@ -3,11 +3,9 @@
 .RData
 .Ruserdata
 output/*.RData
-output/figures_coral/*.png
 papers
 MS_presentation
 R/modelos_previos
 data/traits
-R/*.txt
-*.csv
+R/modelos_previos
 bugs/previous_models
