@@ -9,3 +9,5 @@ R/modelos_previos
 data/traits
 R/modelos_previos
 bugs/previous_models
+output/Vect/*.pdf
+output/Vect/*.svg
