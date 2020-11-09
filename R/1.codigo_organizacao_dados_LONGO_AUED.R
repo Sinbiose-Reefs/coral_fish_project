@@ -174,7 +174,7 @@ L.peixes <- L.peixes [which(L.peixes$location %in% locais_corais),]
 ## modificar o eventID removendo o ano
 
 bentos$eventID_MOD <- substr(bentos$eventID, 1,nchar(as.character(bentos$eventID))-5) 
-
+unique(bentos$eventID_MOD)
 #################################
 ### filtrando as especies de peixes
 
