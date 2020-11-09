@@ -186,7 +186,6 @@ table(traits_peixes [which(traits_peixes$Name %in% tab_spp$sp),"Size_group"])
 # diet
 table(traits_peixes [which(traits_peixes$Name %in% tab_spp$sp),"Diet"])
 
-
 # ---------------------------------------- #
 # FIGURE 2, FISH RELIANCE ON CORAL COVER
 # ---------------------------------------- #
@@ -374,15 +373,19 @@ sp_analyzed <- lapply (seq (1,length(extracted_data)), function (i) {
 
   dev.off() 
 
+  lista_res <- list (teste = teste,
+                     rem_sp = rem_sp)
+  
     ;
 
   ## things to report
-  teste
+  lista_res
 
 })
 
-write.csv (do.call(rbind, sp_analyzed),
-           file=here("output","Tabs","coefs_fit.csv"))
+
+write.table (do.call(rbind, sapply (sp_analyzed,"[","teste")),
+             file=here("output","Tabs","coefs_fit.txt"),sep=";")
 
 # ------------------------------------------------------- #
 # functional spaces
@@ -396,7 +399,7 @@ f.space <- lapply (seq (1,length(extracted_data)), function(k) {
     coef_fish <- extracted_data[[k]]
     
     # rem species
-    coef_fish <- coef_fish[which(coef_fish$peixe %in% sp_analyzed[[k]]$peixe == T),]
+    coef_fish <- coef_fish[which(coef_fish$peixe %in% sapply (sp_analyzed,"[", "teste")[[k]]$peixe == T),]
     
     # dfish traits
     subset1 <- traits_peixes [which(traits_peixes$Name %in% 
@@ -439,9 +442,6 @@ f.space <- lapply (seq (1,length(extracted_data)), function(k) {
         ## only the frst axis
         Inertia.scnd <- (pco$eig[2]) /(sum(pco$eig))
         
-        ## scatter(pco)
-        ## 
-        
         ## complete space
         all <- cbind (pco$li[,1:2],ext = F)
         a <- all [chull(all[,1:2], y = NULL),]
@@ -451,7 +451,7 @@ f.space <- lapply (seq (1,length(extracted_data)), function(k) {
         
         # reduced space
         setB<-cbind(all, ext1=ifelse(rownames(all) %in% fuck_sp,T,F))
-        pk <-setB[which(setB$ext1==T),]
+        pk <-setB[which(setB$ext1==F),]
         f <- pk [chull(pk, y = NULL),]
         
         ## quantifying reduction in functional space
@@ -464,6 +464,7 @@ f.space <- lapply (seq (1,length(extracted_data)), function(k) {
         
         chull.poly.exc <- Polygon(f[,1:2], hole=F)
         chull.area.exc <- chull.poly.exc@area
+        
         ## calculate the diff aftering excluding coral-reliant species
         ## how much the complete space is larger than the excluded one
         red.space <- data.frame (exc=chull.area.exc, 
@@ -523,9 +524,11 @@ f.space <- lapply (seq (1,length(extracted_data)), function(k) {
     ## things to report
     res <- list (space = red.space,
                  first.axis = Inertia.first,
-                 scnd.axis = Inertia.scnd)
+                 scnd.axis = Inertia.scnd,
+                 fuck_sp=fuck_sp )
                               
     }
+    
     
     
     ;
@@ -537,68 +540,155 @@ f.space <- lapply (seq (1,length(extracted_data)), function(k) {
 f.space
 
 ## IUCN
-lapply (sp_analyzed, function (i)
+
+
+f.space.IUCN <- lapply (seq (1,length(extracted_data)), function(k) {
   
-  traits_peixes[which(traits_peixes$Name %in% i$peixe==T),"IUCN_status"]
-)
-
-# ------------------------------ #
-# here based on predicted effect
-# of coral cover reduction
-# ------------------------------ #
-
-# select one sp
-species <- 1
-coral <- 1
-
-#### trying to predict that (somehow)
-beta0 <- extracted_data[[coral]]$intercept [species]
-beta1 <- extracted_data[[coral]]$estimate [species]
-beta0low <- extracted_data[[coral]]$low.int[species]
-beta1low <- extracted_data[[coral]]$low[species]
-beta0high <- extracted_data[[coral]]$high.int[species]
-beta1high <- extracted_data[[coral]]$high[species]
-
-Data <- (sp_cover_data[,1]-mean(sp_cover_data[,1]))/sd(sp_cover_data[,1])
-
-plot(Data[order(Data)], 
-     plogis(beta0+ beta1*Data[order(Data)]),
-            type="l")
-
-# simulate new data along the x axis
-NewData<-cbind(1,x=seq(0,1,0.2))#cobertura de coral 20%, 60% e 80%
-
-(Y_esperadoOcc<-as.vector(plogis(NewData %*% c(beta0,beta1))))
-(Y_esperadoOcc_low<-as.vector(plogis(NewData %*% c(beta0low,beta1low))))
-(Y_esperadoOcc_high<-as.vector(plogis(NewData %*% c(beta0high,beta1high))))
-
-# 
-plot(NewData[,2][order(plogis(beta0 + beta1 * NewData[,2]))],
-     plogis(beta0 + beta1 * NewData[,2])[order(plogis(beta0 + beta1 * NewData[,2]))],
-     pch=19,
-     col="black",
-     type="l",ylim=c(0,1))
-
-lines(NewData[,2][order(plogis(beta0low + beta1low * NewData[,2]))],
-      plogis(beta0low + beta1low * NewData[,2])[order(plogis(beta0low + beta1low * NewData[,2]))],
-      col = "gray")
-lines(NewData[,2][order(plogis(beta0high + beta1high * NewData[,2]))],
-      plogis(beta0high + beta0high * NewData[,2])[order(plogis(beta0high + beta1high * NewData[,2]))],
-      col = "gray")
-
-
-to_pred <- c(0.75,0.5,0.25,0.1)
-lapply (seq(1,length (to_pred)), function (i)
-  lapply (seq (1,length(beta0r)), function (k) {
+  # ext coeff
+  coef_fish <- extracted_data[[k]]
+  
+  # rem species
+  coef_fish <- coef_fish[which(coef_fish$peixe %in% sapply (sp_analyzed,"[", "teste")[[k]]$peixe == T),]
+  
+  # dfish traits
+  subset1 <- traits_peixes [which(traits_peixes$Name %in% 
+                                    unique(coef_fish$peixe)),
+                            c("Name","Body_size", 
+                              "Size_group",
+                              "Aspect_ratio",
+                              "Trophic_level")]
+  
+  subset1$Size_group <- sapply(subset1$Size_group , function(x) {
+    if (x=="sol") {1} 
+    else if (x=="pair") {2} 
+    else if (x=="smallg") {3} 
+    else if (x=="medg") {4} 
+    else if (x=="largeg") {5}}
+  )
+  
+  subset1$Size_group <-ordered (subset1$Size_group)
+  rownames(subset1) <- subset1$Name; subset1<- subset1[,-1]
+  subset1 <- subset1[which(is.na(subset1$Aspect_ratio)==F),]
+  
+  ## when not possible to have functional space
+  if (nrow(subset1) <=2) {
+    red.space <- data.frame (exc=NA, 
+                             comp=NA, 
+                             red=NA)
     
-    new_datab <- data.frame(x =coral_cover_data[,1]*to_pred[i])
-    
-    # 
-    lines(new_data[,1][order(plogis(beta0r[k] + beta1r[k] * new_data[,1]))],
-          plogis(beta0r[k] + beta1r[k] * new_datab[,1])[order(plogis(beta0r[k] + beta1r[k] * new_datab[,1]))],
-          col = "gray")
-    
-  }))
+    ## things to report
+    res <- list (space = red.space)} else {
+      
+      # first calculate gower distance on traits
+      gower_matrix <- daisy (subset1, metric=c("gower")) 
+      
+      # Building the functional space based on a PCOA 
+      pco<-dudi.pco(quasieuclid(gower_matrix), scannf=F, nf=10) # quasieuclid() transformation to make the gower matrix as euclidean. nf= number of axis 
+      #barplot(pco$eig) # barplot of eigenvalues for each axis 
+      (Inertia2<-(pco$eig[1]+pco$eig[2]) /(sum(pco$eig))) # percentage of inertia explained by the two first axes
+      ## only the frst axis
+      Inertia.first <- (pco$eig[1]) /(sum(pco$eig))
+      ## only the frst axis
+      Inertia.scnd <- (pco$eig[2]) /(sum(pco$eig))
+      
+      ## complete space
+      all <- cbind (pco$li[,1:2],ext = F)
+      a <- all [chull(all[,1:2], y = NULL),]
+      
+      ## extracted data of impaired species
+      threat_sp <- traits_peixes [which(traits_peixes$IUCN_status %in% c("cr","ne","nt","dd","vu","en")),"Name"]
+      fuck_sp <- extracted_data[[k]][which(extracted_data[[k]]$peixe %in% threat_sp == T),"peixe"]
+      
+      # reduced space
+      setB<-cbind(all, ext1=ifelse(rownames(all) %in% fuck_sp,T,F))
+      pk <-setB[which(setB$ext1==F),]
+      f <- pk [chull(pk, y = NULL),]
+      
+      ## quantifying reduction in functional space
+      
+      # https://chitchatr.wordpress.com/2015/01/23/calculating-the-area-of-a-convex-hull/
+      chull.poly.complete <- Polygon(a[,1:2], hole=F)
+      chull.area.complete <- chull.poly.complete@area
+      
+      ## if it is not possible to calculate funct space, then report NA
+      
+      chull.poly.exc <- Polygon(f[,1:2], hole=F)
+      chull.area.exc <- chull.poly.exc@area
+      
+      ## calculate the diff aftering excluding coral-reliant species
+      ## how much the complete space is larger than the excluded one
+      red.space <- data.frame (exc=chull.area.exc, 
+                               comp=chull.area.complete, 
+                               red=chull.area.complete/chull.area.exc)
+      
+      
+      
+      ## plot A
+      plotA <- ggplot(a, aes(A1, A2)) + 
+        geom_point() + theme_bw()+
+        geom_polygon(data=a, aes (A1,A2),alpha=0.5,fill="gray") + 
+        geom_polygon(data=f, aes (A1,A2,group=ext1, fill=ext1),alpha=0.5,
+                     fill="black",size=3) +
+        xlim(min (a$A1)-0.2,max (a$A1)+0.2)
+      
+      
+      ## correlations
+      subset1$Size_group <- as.numeric (subset1$Size_group)
+      correlations <- cor (pco$li[is.na(subset1$Aspect_ratio) !=T,1:2],
+                           subset1[is.na(subset1$Aspect_ratio) !=T,])
+      
+      ## plotting 
+      
+      plotA + geom_segment(aes(x = 0, y = 0, 
+                               xend = correlations[1,1]*0.2, 
+                               yend = correlations[2,1]*0.2),size = 1,
+                           arrow = arrow(length = unit(.35, "cm")))  + 
+        ## annotate
+        annotate(geom="text",x=correlations[1,1]*0.25,
+                 y=correlations[2,1]*0.25,label="Body size") +
+        
+        geom_segment(aes(x = 0, y = 0, 
+                         xend = correlations[1,2]*0.2, 
+                         yend = correlations[2,2]*0.2),size = 1,
+                     arrow = arrow(length = unit(.35, "cm"))) + 
+        annotate(geom="text",x=correlations[1,2]*0.25,
+                 y=correlations[2,2]*0.25,label="Size group") +
+        
+        geom_segment(aes(x = 0, y = 0, 
+                         xend = correlations[1,3]*0.2, 
+                         yend = correlations[2,3]*0.2),size = 1,
+                     arrow = arrow(length = unit(.35, "cm"))) + 
+        annotate(geom="text",x=correlations[1,3]*0.25,
+                 y=correlations[2,3]*0.25,label="Aspect ratio") +
+        
+        geom_segment(aes(x = 0, y = 0, 
+                         xend = correlations[1,4]*0.2, 
+                         yend = correlations[2,4]*0.2),size = 1,
+                     arrow = arrow(length = unit(.35, "cm"))) + 
+        annotate(geom="text",x=correlations[1,4]*0.25,
+                 y=correlations[2,4]*0.25,label="Trophic level")
+      
+      ggsave(here ("output","Vect",filename = paste ("FspaceIUCN",coral_species[k],".pdf")), 
+             width = 4,height=4) 
+      
+      ## things to report
+      res <- list (space = red.space,
+                   first.axis = Inertia.first,
+                   scnd.axis = Inertia.scnd,
+                   fuck_sp = fuck_sp)
+      
+    }
+  
+  
+  ;
+  
+  res
+  
+})
+
+f.space.IUCN
+
+
 
 # ------------------------------------------------- #  
 # ------------------------------------------------- #
@@ -797,15 +887,18 @@ sp_analyzed <- lapply (seq (1,length(extracted_data)), function (i) {
   
   dev.off() 
   
+  list_res <- list (rem_sp = rem_sp,
+                    teste = teste)
+  
   ;
   
   ## things to report
-  teste
+  list_res
   
 })
 
-write.csv (do.call(rbind, sp_analyzed),
-           file=here("output","Tabs","coefs_fit_longo.csv"))
+write.table (do.call(rbind, sapply (sp_analyzed,"[","teste")),
+           file=here("output","Tabs","coefs_fit_longo.txt"),sep=";")
 
 # ------------------------------------------------------- #
 # functional spaces
@@ -819,7 +912,7 @@ f.space <- lapply (seq (1,length(extracted_data)), function(k) {
   coef_fish <- extracted_data[[k]]
   
   # rem species
-  coef_fish <- coef_fish[which(coef_fish$peixe %in% sp_analyzed[[k]]$peixe == T),]
+  coef_fish <- coef_fish[which(coef_fish$peixe %in% sapply (sp_analyzed,"[","teste")[[k]]$peixe == T),]
   
   # dfish traits
   subset1 <- traits_peixes [which(traits_peixes$Name %in% 
@@ -862,7 +955,7 @@ f.space <- lapply (seq (1,length(extracted_data)), function(k) {
   
   # reduced space
   setB<-cbind(all, ext1=ifelse(rownames(all) %in% fuck_sp,T,F))
-  pk <-setB[which(setB$ext1==T),]
+  pk <-setB[which(setB$ext1==F),]
   f <- pk [chull(pk, y = NULL),]
   
   ## quantifying reduction in functional space
@@ -937,7 +1030,8 @@ f.space <- lapply (seq (1,length(extracted_data)), function(k) {
   ## things to report
   res <- list (space = red.space,
                first.axis = Inertia.first,
-               scnd.axis = Inertia.scnd)
+               scnd.axis = Inertia.scnd,
+               fuck_sp = fuck_sp)
   ;
   
   res
@@ -948,8 +1042,154 @@ f.space
 
 
 ## IUCN
-lapply (sp_analyzed, function (i)
+
+
+
+f.space.IUCN <- lapply (seq (1,length(extracted_data)), function(k) {
   
-  traits_peixes[which(traits_peixes$Name %in% i$peixe==T),"IUCN_status"]
-)
+  # ext coeff
+  coef_fish <- extracted_data[[k]]
+  
+  # rem species
+  coef_fish <- coef_fish[which(coef_fish$peixe %in% sapply (sp_analyzed,"[","teste")[[k]]$peixe == T),]
+  
+  # dfish traits
+  subset1 <- traits_peixes [which(traits_peixes$Name %in% 
+                                    unique(coef_fish$peixe)),
+                            c("Name","Body_size", 
+                              "Size_group",
+                              "Aspect_ratio",
+                              "Trophic_level")]
+  
+  subset1$Size_group <- sapply(subset1$Size_group , function(x) {
+    if (x=="sol") {1} 
+    else if (x=="pair") {2} 
+    else if (x=="smallg") {3} 
+    else if (x=="medg") {4} 
+    else if (x=="largeg") {5}}
+  )
+  
+  subset1$Size_group <-ordered (subset1$Size_group)
+  rownames(subset1) <- subset1$Name; subset1<- subset1[,-1]
+  subset1 <- subset1[which(is.na(subset1$Aspect_ratio)==F),]
+  
+  ## when not possible to have functional space
+  if (nrow(subset1) <=2) {
+    red.space <- data.frame (exc=NA, 
+                             comp=NA, 
+                             red=NA)
+    
+    ## things to report
+    res <- list (space = red.space)} else {
+      
+      # first calculate gower distance on traits
+      gower_matrix <- daisy (subset1, metric=c("gower")) 
+      
+      # Building the functional space based on a PCOA 
+      pco<-dudi.pco(quasieuclid(gower_matrix), scannf=F, nf=10) # quasieuclid() transformation to make the gower matrix as euclidean. nf= number of axis 
+      #barplot(pco$eig) # barplot of eigenvalues for each axis 
+      (Inertia2<-(pco$eig[1]+pco$eig[2]) /(sum(pco$eig))) # percentage of inertia explained by the two first axes
+      ## only the frst axis
+      Inertia.first <- (pco$eig[1]) /(sum(pco$eig))
+      ## only the frst axis
+      Inertia.scnd <- (pco$eig[2]) /(sum(pco$eig))
+      
+      ## complete space
+      all <- cbind (pco$li[,1:2],ext = F)
+      a <- all [chull(all[,1:2], y = NULL),]
+      
+      ## extracted data of impaired species
+      threat_sp <- traits_peixes [which(traits_peixes$IUCN_status %in% c("cr","ne","nt","dd","vu","en")),"Name"]
+      fuck_sp <- extracted_data[[k]][which(extracted_data[[k]]$peixe %in% threat_sp == T),"peixe"]
+      
+      # reduced space
+      setB<-cbind(all, ext1=ifelse(rownames(all) %in% fuck_sp,T,F))
+      pk <-setB[which(setB$ext1==F),]
+      f <- pk [chull(pk, y = NULL),]
+      
+      ## quantifying reduction in functional space
+      
+      # https://chitchatr.wordpress.com/2015/01/23/calculating-the-area-of-a-convex-hull/
+      chull.poly.complete <- Polygon(a[,1:2], hole=F)
+      chull.area.complete <- chull.poly.complete@area
+      
+      ## if it is not possible to calculate funct space, then report NA
+      
+      chull.poly.exc <- Polygon(f[,1:2], hole=F)
+      chull.area.exc <- chull.poly.exc@area
+      
+      ## calculate the diff aftering excluding coral-reliant species
+      ## how much the complete space is larger than the excluded one
+      red.space <- data.frame (exc=chull.area.exc, 
+                               comp=chull.area.complete, 
+                               red=chull.area.complete/chull.area.exc)
+      
+      
+      
+      ## plot A
+      plotA <- ggplot(a, aes(A1, A2)) + 
+        geom_point() + theme_bw()+
+        geom_polygon(data=a, aes (A1,A2),alpha=0.5,fill="gray") + 
+        geom_polygon(data=f, aes (A1,A2,group=ext1, fill=ext1),alpha=0.5,
+                     fill="black",size=3) +
+        xlim(min (a$A1)-0.2,max (a$A1)+0.2)
+      
+      
+      ## correlations
+      subset1$Size_group <- as.numeric (subset1$Size_group)
+      correlations <- cor (pco$li[is.na(subset1$Aspect_ratio) !=T,1:2],
+                           subset1[is.na(subset1$Aspect_ratio) !=T,])
+      
+      ## plotting 
+      
+      plotA + geom_segment(aes(x = 0, y = 0, 
+                               xend = correlations[1,1]*0.2, 
+                               yend = correlations[2,1]*0.2),size = 1,
+                           arrow = arrow(length = unit(.35, "cm")))  + 
+        ## annotate
+        annotate(geom="text",x=correlations[1,1]*0.25,
+                 y=correlations[2,1]*0.25,label="Body size") +
+        
+        geom_segment(aes(x = 0, y = 0, 
+                         xend = correlations[1,2]*0.2, 
+                         yend = correlations[2,2]*0.2),size = 1,
+                     arrow = arrow(length = unit(.35, "cm"))) + 
+        annotate(geom="text",x=correlations[1,2]*0.25,
+                 y=correlations[2,2]*0.25,label="Size group") +
+        
+        geom_segment(aes(x = 0, y = 0, 
+                         xend = correlations[1,3]*0.2, 
+                         yend = correlations[2,3]*0.2),size = 1,
+                     arrow = arrow(length = unit(.35, "cm"))) + 
+        annotate(geom="text",x=correlations[1,3]*0.25,
+                 y=correlations[2,3]*0.25,label="Aspect ratio") +
+        
+        geom_segment(aes(x = 0, y = 0, 
+                         xend = correlations[1,4]*0.2, 
+                         yend = correlations[2,4]*0.2),size = 1,
+                     arrow = arrow(length = unit(.35, "cm"))) + 
+        annotate(geom="text",x=correlations[1,4]*0.25,
+                 y=correlations[2,4]*0.25,label="Trophic level")
+      
+      ggsave(here ("output","Vect",filename = paste ("FspaceIUCN_longo",coral_species[k],".pdf")), 
+             width = 4,height=4) 
+      
+      ## things to report
+      res <- list (space = red.space,
+                   first.axis = Inertia.first,
+                   scnd.axis = Inertia.scnd,
+                   fuck_sp=fuck_sp )
+      
+    }
+  
+  
+  ;
+  
+  res
+  
+})
+
+f.space.IUCN
+
+
 
