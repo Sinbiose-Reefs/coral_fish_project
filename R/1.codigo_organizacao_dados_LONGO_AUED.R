@@ -10,7 +10,7 @@ source("R/functions.R")
 ## MODO A REMOVER OS NAs E TRABALHAR SOMENTE COM AS OBSERVACOES
 
 ## AQUI, A PRIMEIRA COISA FEITA FOI ARRUMAR OS DADOS DE LONGO
-
+## isto esta desativado porque estas mudancas foram consolidada
 ### dados dos peixes (Longo et al)
 # L.peixes <- read.csv(here("data","detection","occ_Longo_et_al","Data_Trophic_Interactions_WAtlantic_GLongo_clean.csv"),
 #                     header = T)
@@ -290,6 +290,7 @@ imputed_longo_data <- lapply (imputed_longo_data, function (i) {
 })
 
 names (imputed_longo_data ) <- sitios_longo
+
 ## neste formato, a especie de peixe esta na linha, o video_number na coluna,
 ## e o sitio na lista; desmanchar para oragnizar no formato array
 ## usar do.call para tornar um DF
@@ -314,7 +315,7 @@ tabela_data_longo <- lapply (list_sp_longo, function (k)
 ## montar uma tabela modelo para imputar sitios
 nvideos_site <- unlist (lapply (data_longo_adjusted,ncol))
 
-## sitios para imputar - NA se sem observacao nenhuma (nenhum video)
+## sitios para imputar - 0 se sem observacao nenhuma (nenhum video)
 imput_sitios <- lapply (seq(1,length(nvideos_site)), function (i)
   
   matrix(0, ncol=nvideos_site[i],nrow=1,
@@ -323,7 +324,8 @@ imput_sitios <- lapply (seq(1,length(nvideos_site)), function (i)
 
 ## imputar sitios NAs
 imput_sitios <- lapply (seq (1,length (imput_sitios)), function (i)
-cbind(imput_sitios[[i]], matrix (NA, nrow=1,ncol = maximo_videos - ncol(imput_sitios [[i]]),
+
+  cbind(imput_sitios[[i]], matrix (NA, nrow=1,ncol = maximo_videos - ncol(imput_sitios [[i]]),
         dimnames =list(rownames(imput_sitios [[i]]),
                        seq( ncol(imput_sitios [[i]])+1, maximo_videos))
         )
