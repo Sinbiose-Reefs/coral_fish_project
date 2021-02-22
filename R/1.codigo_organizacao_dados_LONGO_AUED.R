@@ -171,6 +171,10 @@ L.peixes$ScientificName <- tolower (L.peixes$ScientificName)
 bentos <- bentos [which(bentos$Locality %in% locais_corais),]
 L.peixes <- L.peixes [which(L.peixes$location %in% locais_corais),]
 
+# nspp Longo et al. 
+
+unique(L.peixes$ScientificName)
+
 ## modificar o eventID removendo o ano
 
 bentos$eventID_MOD <- substr(bentos$eventID, 1,nchar(as.character(bentos$eventID))-5) 
