@@ -670,6 +670,24 @@ coral_cover_data_std <- apply (coral_cover_data, 2, function (i)
 # all the same across species
 std_time <- (sqrt (df_fish_data_per_coral[[1]][,'time',1]) - mean(sqrt (df_fish_data_per_coral[[1]][,'time',1])))/sd(sqrt (df_fish_data_per_coral[[1]][,'time',1]))
 
+# BASIC INFO
+basic_data <- cbind(coordenadas, 
+                    coral_cover_data[,1:4],
+      sites=names(nvideos),
+      nphoto=nvideos,
+      nvideo=rowSums (table(df_fish_data_per_coral[[1]][,'M',1],
+            df_fish_data_per_coral[[1]][,'J',1]))
+)
+
+apply (coral_cover_data[,1:4],2,mean)
+apply (coral_cover_data[,1:4],2,sd)
+apply (coral_cover_data[,1:4],2,range)
+
+colSums(coral_cover_data[,1:4]>0)
+
+# save
+write.csv (basic_data,file=here("output","basic_data_table1.csv"))
+
 ################
 # MCMC settings
 
