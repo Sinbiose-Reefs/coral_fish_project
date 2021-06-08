@@ -44,6 +44,7 @@ require(jagsUI)
 require(vegan)
 require(cluster)
 require(ade4)
+require(clue)
 
 
 

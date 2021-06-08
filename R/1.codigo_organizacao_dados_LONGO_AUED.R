@@ -173,7 +173,9 @@ L.peixes <- L.peixes [which(L.peixes$location %in% locais_corais),]
 
 # nspp Longo et al. 
 
-unique(L.peixes$ScientificName)
+unique_spp_longo138 <- unique(L.peixes$ScientificName)
+# save to further interpretation (functional space)
+save (unique_spp_longo138, file=here("output","unique_spp_longo138.RData"))
 
 ## modificar o eventID removendo o ano
 
@@ -209,6 +211,9 @@ L.peixes_subset <- L.peixes_subset [which(L.peixes_subset$eventID_MOD %in% bento
 
 ## da mesma forma, pegar o subset de ID de bentos que estao nos dados de peixes
 L.bentos_subset <- bentos [which(bentos$eventID_MOD %in% L.peixes_subset$eventID_MOD),]
+
+## export data.frame of fish basic data (for interpretation of size profiles)
+save (L.peixes_subset, file=here("output","L.peixes_subset.RData"))
 
 ######################################################################
 ######################################################################

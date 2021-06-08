@@ -7,6 +7,11 @@
 source ("R/packages.R")
 source ("R/functions.R")
 
+
+## function to test space quality
+source("R/quality_funct_space_fromdist2.R")
+
+
 # ---------------------# 
 # MAP (figure 1)
 # ---------------------#
@@ -129,6 +134,7 @@ traits_peixes$Name <- tolower (gsub (" ",".", traits_peixes$Name))
 traits_peixes$Body_size <-  gsub(",",".",traits_peixes$Body_size)
 traits_peixes$Body_size <- as.numeric(traits_peixes$Body_size)
 traits_peixes$Aspect_ratio <- as.numeric( gsub(",",".",traits_peixes$Aspect_ratio))
+traits_peixes$Trophic_level <- as.numeric( gsub(",",".",traits_peixes$Trophic_level))
 
 ## stat
 # size
@@ -160,16 +166,59 @@ traits_peixes_table <- traits_peixes [which(traits_peixes$Name %in% tab_spp$sp),
                                                            "Trophic_level",
                                                            "IUCN_status"
                                                            )]
-write.csv (traits_peixes_table,
-           file=here("output","Tabs","trait_table.csv"))
+#write.csv (traits_peixes_table,
+#           file=here("output","Tabs","trait_table.csv"))
 
+
+# ----------------------------------------- #
+# Fig S? find the profile of size of large-sized fishes with association to corals
+# -------------------------------------------- #
+
+load(here("output","L.peixes_subset.RData"))
+
+dat <- data.frame (Size=L.peixes_subset [which(L.peixes_subset$ScientificName == "mycteroperca.acutirostris"),"body_size_cm"],
+                   Name=L.peixes_subset [which(L.peixes_subset$ScientificName == "mycteroperca.acutirostris"),"ScientificName"])
+
+label_size <- traits_peixes_table[which(traits_peixes_table$Name == "mycteroperca.acutirostris"),"Body_size"]
+# my ac
+my_ac <- ggplot(dat, aes(x=Size, group=Name)) + 
+  geom_density(size=2) + theme_classic()+
+  xlab("")+
+  annotate("text",x=2,xmin=2,y=0.3,ymin=0.3,label=paste("MaxSize= ",label_size," cm."))+
+  ggtitle ("Mycteroperca acutirostris")
+  
+# holoc adsonensis
+dat <- data.frame (Size=L.peixes_subset [which(L.peixes_subset$ScientificName == "holocentrus.adscensionis"),"body_size_cm"],
+                   Name=L.peixes_subset [which(L.peixes_subset$ScientificName == "holocentrus.adscensionis"),"ScientificName"])
+
+label_size <- traits_peixes_table[which(traits_peixes_table$Name == "holocentrus.adscensionis"),"Body_size"]
+hol_ad <- ggplot(dat, aes(x=Size, group=Name)) + 
+  xlab("")+
+  geom_density(size=2) + theme_classic()+
+  annotate("text",x=3,xmin=3,y=0.3,ymin=0.3,label=paste("MaxSize= ",label_size," cm."))+
+  ggtitle ("Holocentrus adscensionis")
+
+# ep morio
+# holoc adsonensis
+dat <- data.frame (Size=L.peixes_subset [which(L.peixes_subset$ScientificName == "epinephelus.morio"),"body_size_cm"],
+                   Name=L.peixes_subset [which(L.peixes_subset$ScientificName == "epinephelus.morio"),"ScientificName"])
+
+label_size <- traits_peixes_table[which(traits_peixes_table$Name == "epinephelus.morio"),"Body_size"]
+ep_mor <- ggplot(dat, aes(x=Size, group=Name)) + 
+  geom_density(size=2) + theme_classic()+
+  annotate("text",x=1,xmin=1,y=0.32,ymin=0.32,label=paste("MaxSize= ",label_size," cm."))+
+  ggtitle ("Epinephelus morio")+coord_cartesian(ylim=c(0.25, 0.33))
+  
+
+# arrange that in a grid
+grid.arrange(my_ac,hol_ad,ep_mor)
 
 # ------------------------------------------------- #  
 # ------------------------------------------------- #
-# The same  for Longo et al. 
+# Longo et al.  estimates
 # ------------------------------------------------- #  
 # ------------------------------------------------- #
-
+  
 # load packages and functions
 source ("R/packages.R")
 source ("R/functions.R")
@@ -186,7 +235,6 @@ load(here("output","samples_OCCcoral_PdepthTime_longo.RData"))
 
 ## LOAD MODEL RESULTS
 load(here("output","samples_OCCcoral_PdepthTime_longo_RdmP.RData")) 
-
 # ---------------------------------------- #
 # FIGURE 2, FISH RELIANCE ON CORAL COVER
 # ---------------------------------------- #
@@ -471,6 +519,11 @@ f.space <- lapply (unique (total$coral), function(k) {
   pco<-dudi.pco(quasieuclid(gower_matrix), scannf=F, nf=10) # quasieuclid() transformation to make the gower matrix as euclidean. nf= number of axis 
   #barplot(pco$eig) # barplot of eigenvalues for each axis 
   (Inertia2<-(pco$eig[1]+pco$eig[2]) /(sum(pco$eig))) # percentage of inertia explained by the two first axes
+  
+  # estimate quality of f space
+  quality<-quality_funct_space_fromdist( gower_matrix,  nbdim=10,   
+                                         plot="quality_funct_space_I") 
+  
   ## only the frst axis
   Inertia.first <- (pco$eig[1]) /(sum(pco$eig))
   ## only the frst axis
@@ -563,6 +616,7 @@ f.space <- lapply (unique (total$coral), function(k) {
   
   ## things to report
   res <- list (space = red.space,
+               quality=quality,
                first.axis = Inertia.first,
                scnd.axis = Inertia.scnd,
                fuck_sp = fuck_sp)
@@ -1050,6 +1104,156 @@ res_random <- list (space = sapply (extinction_random,"[","red.space"),
 apply(do.call(rbind,sapply (extinction_random,"[","red.space")),2,mean)
 apply(do.call(rbind,sapply (extinction_random,"[","red.space")),2,sd)
 
+
+# ----------------------------------------------------------
+# check whether these analyzed fishes occupy a small portion of the functional
+# space found for complete longo's dataset
+# load the list of all species found in Longo
+load (here("output","unique_spp_longo138.RData"))
+
+## load trait data
+traits_peixes <- read.csv(here("data","traits","Atributos_especies_Atlantico_&_Pacifico_Oriental_2020_04_28.csv"),
+                          h=T,sep=";")
+traits_peixes$Name <- tolower (gsub (" ",".", traits_peixes$Name))
+traits_peixes$Body_size <-  gsub(",",".",traits_peixes$Body_size)
+traits_peixes$Body_size <- as.numeric(traits_peixes$Body_size)
+traits_peixes$Aspect_ratio <- as.numeric( gsub(",",".",traits_peixes$Aspect_ratio))
+traits_peixes$Trophic_level <- as.numeric( gsub(",",".",traits_peixes$Trophic_level))
+
+# dfish traits
+subset1 <- traits_peixes [which(traits_peixes$Name %in% 
+                                  unique_spp_longo138),
+                          c("Name","Body_size", 
+                            "Size_group",
+                            "Aspect_ratio",
+                            "Trophic_level")]
+
+subset1$Size_group <- sapply(subset1$Size_group , function(x) {
+  if (x=="sol") {1} 
+  else if (x=="pair") {2} 
+  else if (x=="smallg") {3} 
+  else if (x=="medg") {4} 
+  else if (x=="largeg") {5}}
+)
+
+subset1$Size_group <-ordered (subset1$Size_group)
+rownames(subset1) <- subset1$Name; subset1<- subset1[,-1]
+subset1 <- subset1[which(is.na(subset1$Aspect_ratio)==F),]
+
+# first calculate gower distance on traits
+gower_matrix <- daisy (subset1, metric=c("gower")) 
+
+# Building the functional space based on a PCOA 
+pco<-dudi.pco(quasieuclid(gower_matrix), scannf=F, nf=10) # quasieuclid() transformation to make the gower matrix as euclidean. nf= number of axis 
+#barplot(pco$eig) # barplot of eigenvalues for each axis 
+(Inertia2<-(pco$eig[1]+pco$eig[2]) /(sum(pco$eig))) # percentage of inertia explained by the two first axes
+## only the frst axis
+Inertia.first <- (pco$eig[1]) /(sum(pco$eig))
+## only the frst axis
+Inertia.scnd <- (pco$eig[2]) /(sum(pco$eig))
+
+## complete space
+all <- cbind (pco$li[,1:2],ext = F)
+a <- all [chull(all[,1:2], y = NULL),]
+#a [order(a$A1,decreasing=T),]
+
+# space of analyzed spp
+setB<-cbind(all, ext1=ifelse(rownames(all) %in% sp_longo,F,T))
+pk <-setB[which(setB$ext1==F),]
+f <- pk [chull(pk, y = NULL),]
+
+## space of associated / influenced by corals 
+fuck_sp <- unique(total [which(total$low >0),"peixe"])
+fuck_sp<-tolower(gsub (" ",".",fuck_sp,))
+
+setc<-cbind(all, ext1=ifelse(rownames(all) %in% fuck_sp,F,T))
+pkB <-setc[which(setc$ext1==F),]
+dep <- pkB [chull(pkB, y = NULL),]
+
+## quantifying reduction in functional space
+
+# https://chitchatr.wordpress.com/2015/01/23/calculating-the-area-of-a-convex-hull/
+chull.poly.complete <- Polygon(a[,1:2], hole=F)
+(chull.area.complete <- chull.poly.complete@area)
+
+chull.poly.complete <- Polygon(f[,1:2], hole=F)
+(chull.area.videop <- chull.poly.complete@area)
+
+chull.poly.complete <- Polygon(dep[,1:2], hole=F)
+(chull.area.videop.reliant <- chull.poly.complete@area)
+
+## plot A
+plotA <- ggplot(a, aes(A1, A2)) + 
+  geom_point() + theme_bw()+
+  geom_polygon(data=a, aes (A1,A2),alpha=0.5,fill="gray") + 
+  geom_polygon(data=f, aes (A1,A2,group=ext1, fill=ext1),alpha=0.5,
+               fill="black",size=3) +
+  geom_polygon(data=dep, aes (A1,A2,group=ext1, fill=ext1),alpha=0.5,
+               fill="orange",size=3) +
+    xlim(min (a$A1)-0.2,max (a$A1)+0.2) + 
+  xlab ("A1 (42.55%)")+
+  ylab("A2 (24.77%)")
+
+## correlations
+subset1$Size_group <- as.numeric (subset1$Size_group)
+correlations <- cor (pco$li[is.na(subset1$Aspect_ratio) !=T,1:2],
+                     subset1[is.na(subset1$Aspect_ratio) !=T,])
+
+## plotting 
+
+plotA + geom_segment(aes(x = 0, y = 0, 
+                         xend = correlations[1,1]*0.2, 
+                         yend = correlations[2,1]*0.2),size = 1,
+                     arrow = arrow(length = unit(.35, "cm")))  + 
+  ## annotate
+  annotate(geom="text",x=correlations[1,1]*0.25,
+           y=correlations[2,1]*0.25,label="Body size") +
+  
+  geom_segment(aes(x = 0, y = 0, 
+                   xend = correlations[1,2]*0.2, 
+                   yend = correlations[2,2]*0.2),size = 1,
+               arrow = arrow(length = unit(.35, "cm"))) + 
+  annotate(geom="text",x=correlations[1,2]*0.25,
+           y=correlations[2,2]*0.25,label="Size group") +
+  
+  geom_segment(aes(x = 0, y = 0, 
+                   xend = correlations[1,3]*0.2, 
+                   yend = correlations[2,3]*0.2),size = 1,
+               arrow = arrow(length = unit(.35, "cm"))) + 
+  annotate(geom="text",x=correlations[1,3]*0.25,
+           y=correlations[2,3]*0.25,label="Aspect ratio") +
+  
+  geom_segment(aes(x = 0, y = 0, 
+                   xend = correlations[1,4]*0.2, 
+                   yend = correlations[2,4]*0.2),size = 1,
+               arrow = arrow(length = unit(.35, "cm"))) + 
+  annotate(geom="text",x=correlations[1,4]*0.25,
+           y=correlations[2,4]*0.25,label="Trophic level") + 
+  
+  # ANOTATE FUNCTIONAL SPACE SIZE
+  annotate(geom="text",x=0.05,xmin=0.05,
+           y=-0.2,ymin=-0.2,colour="white",
+           label=paste(round(chull.area.videop/chull.area.complete,2)*100,
+           "%")) + 
+  # ANOTATE FUNCTIONAL SPACE SIZE
+  annotate(geom="text",x=-0.05,xmin=-0.05,
+           y=-0.1,ymin=-0.1,colour="white",
+           label=paste(round(chull.area.videop.reliant/chull.area.complete,2)*100,
+                       "%"))
+
+  
+
+# save plot
+ggsave(here ("output","Vect",filename = paste ("Fspace_longo_all_fish.pdf")), 
+       width = 4,height=4) 
+
+
+#
+
+
+
+
+## not needed yet
 
 # ------------------------------- #
 # mapping reductions
