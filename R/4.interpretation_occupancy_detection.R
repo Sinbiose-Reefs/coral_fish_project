@@ -382,7 +382,7 @@ sp_analyzed <- lapply (seq (1,length(extracted_data)), function (i) {
   )
   
   
-  pdf (file=here("output", "Vect",paste (i,"longob.pdf",sep="_")),width=4,heigh=3)
+  pdf (file=here("output", "Vect",paste (i,"longob_neg.pdf",sep="_")),width=4,heigh=3)
   grid.arrange(
     plot_eff [[1]],
     plot_eff [[2]], 
@@ -518,7 +518,7 @@ f.space <- lapply (unique (total$coral), function(k) {
   # Building the functional space based on a PCOA 
   pco<-dudi.pco(quasieuclid(gower_matrix), scannf=F, nf=10) # quasieuclid() transformation to make the gower matrix as euclidean. nf= number of axis 
   #barplot(pco$eig) # barplot of eigenvalues for each axis 
-  (Inertia2<-(pco$eig[1]+pco$eig[2]) /(sum(pco$eig))) # percentage of inertia explained by the two first axes
+  (Inertia2<-(pco$eig[1]+pco$eig[2]+pco$eig[3]) /(sum(pco$eig))) # percentage of inertia explained by the two first axes
   
   # estimate quality of f space
   quality<-quality_funct_space_fromdist( gower_matrix,  nbdim=10,   
@@ -528,6 +528,8 @@ f.space <- lapply (unique (total$coral), function(k) {
   Inertia.first <- (pco$eig[1]) /(sum(pco$eig))
   ## only the frst axis
   Inertia.scnd <- (pco$eig[2]) /(sum(pco$eig))
+  ## only the frst axis
+  Inertia.trd <- (pco$eig[3]) /(sum(pco$eig))
   
   ## complete space
   all <- cbind (pco$li[,1:2],ext = F)

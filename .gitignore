@@ -6,9 +6,8 @@ output/*.RData
 papers
 MS_presentation
 R/modelos_previos
-data/traits
 R/modelos_previos
-bugs/previous_models
+bugs
 output/Vect/*.pdf
 output/Vect/*.svg
 R/morais_not_used
