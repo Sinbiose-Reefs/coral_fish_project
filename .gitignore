@@ -2,19 +2,17 @@
 .Rhistory
 .RData
 .Ruserdata
-output/*.RData
+
+
+output
 papers
-MS_presentation
-R/modelos_previos
-R/modelos_previos
+R
 bugs
-output/Vect/*.pdf
-output/Vect/*.svg
-R/morais_not_used
+MS_presentation
+
 data/coralsIUCN
 data/fishIUCN
 data/detection/UpdatedData_RMorais_et_al_2017.xlsx
 data/detection/UpdatedData_RMorais_et_al_2017.csv
 data/detection/Metadata_UpatedData_RMorais_et_al_2017
-output/Vect/fotos
 
