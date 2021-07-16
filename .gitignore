@@ -2,10 +2,10 @@
 .Rhistory
 .RData
 .Ruserdata
+*.jpeg
 
 output
 output_comm_wide
-
 papers
 R
 bugs
