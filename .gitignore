@@ -4,12 +4,12 @@
 .Ruserdata
 *.jpeg
 
-/output
-/output_comm_wide
-/papers
-R
-/bugs
-/MS_presentation
+output/
+output_comm_wide/
+papers/
+R/
+bugs/
+MS_presentation/
 
 data/coralsIUCN
 data/fishIUCN
