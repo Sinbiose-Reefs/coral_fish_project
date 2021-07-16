@@ -3,8 +3,9 @@
 .RData
 .Ruserdata
 
-
 output
+output_comm_wide
+
 papers
 R
 bugs
