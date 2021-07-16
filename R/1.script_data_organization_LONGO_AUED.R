@@ -327,6 +327,7 @@ imput_sitios <- lapply (seq (1,length (imput_sitios)), function (i)
 imput_sitios <- do.call (rbind,imput_sitios)[,-12] # sites to imput (minus the additional col we set before)
 tabela_data_longo <- lapply (tabela_data_longo, function (i)
   # imput sites using R bind
+  ## col 1 = species id
   rbind (i[,-1], imput_sitios [which(rownames(imput_sitios) %in% rownames(i) == F),]) 
        
         )
@@ -351,7 +352,7 @@ arranjo_longo_sitio_video <-   array(unlist(tabela_data_longo ),
 
 # transform into detection (1) and non-detection (0) data
 arranjo_longo_sitio_video [arranjo_longo_sitio_video > 1] <- 1
-arranjo_longo_sitio_video <- arranjo_longo_sitio_video [,-11,] # remove the last video (no detection)
+#arranjo_longo_sitio_video <- arranjo_longo_sitio_video [,-11,] # remove the last video (no detection)
 
 # --------------------------------------------
 # observation covariates
