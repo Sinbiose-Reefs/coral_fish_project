@@ -10,16 +10,9 @@ source ("R/functions.R")
 ## function to test space quality
 source("R/quality_funct_space_fromdist2.R")
 
-## create a directory to host results
-dir.create("output_comm_wide")
-
 # ---------------------# 
 # MAP (figure 1)
 # ---------------------#
-
-# ---------------------# 
-# fish data  -  Morais
-# ---------------------# 
 
 # mapa mundi
 world <- ne_countries(scale = "medium", returnclass = "sf")
@@ -115,9 +108,6 @@ dev.off()
 # information of fish species
 # ---------------------------------------- #
 
-#load (here("output_comm_wide","Data_fish_detection_MORAIS_AUED.RData"))
-#sp_morais <- unique(unlist(fish_species))
-
 load (here("output_comm_wide","Data_fish_detection_LONGO_AUED.RData"))
 sp_longo <- unique(unlist(fish_species))
 
@@ -126,7 +116,7 @@ tab_spp <- data.frame (sp = sp_longo)#unique spp
 
 # ------------------------------------------------- #  
 # ------------------------------------------------- #
-# Longo et al.  estimates
+# site occupancy estimates
 # ------------------------------------------------- #  
 # ------------------------------------------------- #
   
@@ -150,6 +140,7 @@ load(here("output_comm_wide","samples_OCCcoral_PdepthTime_longo_RdmP.RData"))
 ## load trait data
 traits_peixes <- read.csv(here("data","traits","Atributos_especies_Atlantico_&_Pacifico_Oriental_2020_04_28.csv"),
                           h=T,sep=";")
+#adjust names
 traits_peixes$Name <- tolower (gsub (" ",".", traits_peixes$Name))
 traits_peixes$Name <- gsub("\\."," ", paste0(toupper(substr(traits_peixes$Name, 1, 1)), 
                                              substr(traits_peixes$Name, 2, 100)))
@@ -173,6 +164,7 @@ traits_peixes [which(tolower (gsub(" ",".",traits_peixes$Name)) %in% tab_spp$sp)
                                                                                    "IUCN_status"
 )]
 
+# imputing a few missing data
 # replacing NAs in aspect ratio by genera average
 ## finding genera
 genera <- unlist(
@@ -187,6 +179,7 @@ mean_av_ratio <- unlist(lapply (genera, function (i)
 # imput in the table
 traits_peixes[which(is.na(traits_peixes$Aspect_ratio)),"Aspect_ratio"] <- mean_av_ratio
 
+# subset of the table
 traits_peixes_table <- (traits_peixes [which(tolower (gsub(" ",".",traits_peixes$Name)) %in% tab_spp$sp),c("Family",
                                                                                        "Name",
                                                                                        "Body_size",
@@ -200,53 +193,9 @@ traits_peixes_table <- (traits_peixes [which(tolower (gsub(" ",".",traits_peixes
                                                                                        "IUCN_status"
 )])
 
-
+# save to show in supporting info
 write.csv (traits_peixes_table,
            file=here("output_comm_wide","trait_table.csv"))
-
-# ----------------------------------------- #
-# Fig S? find the profile of size of large-sized fishes with association to corals
-# -------------------------------------------- #
-
-load(here("output_comm_wide","L.peixes_subset.RData"))
-
-dat <- data.frame (Size=L.peixes_subset [which(L.peixes_subset$ScientificName == "mycteroperca.acutirostris"),"body_size_cm"],
-                   Name=L.peixes_subset [which(L.peixes_subset$ScientificName == "mycteroperca.acutirostris"),"ScientificName"])
-
-label_size <- traits_peixes_table[which(traits_peixes_table$Name == "mycteroperca.acutirostris"),"Body_size"]
-# my ac
-my_ac <- ggplot(dat, aes(x=Size, group=Name)) + 
-  geom_density(size=2) + theme_classic()+
-  xlab("")+
-  annotate("text",x=2,xmin=2,y=0.3,ymin=0.3,label=paste("MaxSize= ",label_size," cm."))+
-  ggtitle ("Mycteroperca acutirostris")
-
-# holoc adsonensis
-dat <- data.frame (Size=L.peixes_subset [which(L.peixes_subset$ScientificName == "holocentrus.adscensionis"),"body_size_cm"],
-                   Name=L.peixes_subset [which(L.peixes_subset$ScientificName == "holocentrus.adscensionis"),"ScientificName"])
-
-label_size <- traits_peixes_table[which(traits_peixes_table$Name == "holocentrus.adscensionis"),"Body_size"]
-hol_ad <- ggplot(dat, aes(x=Size, group=Name)) + 
-  xlab("")+
-  geom_density(size=2) + theme_classic()+
-  annotate("text",x=3,xmin=3,y=0.3,ymin=0.3,label=paste("MaxSize= ",label_size," cm."))+
-  ggtitle ("Holocentrus adscensionis")
-
-# ep morio
-# ep morio
-dat <- data.frame (Size=L.peixes_subset [which(L.peixes_subset$ScientificName == "epinephelus.morio"),"body_size_cm"],
-                   Name=L.peixes_subset [which(L.peixes_subset$ScientificName == "epinephelus.morio"),"ScientificName"])
-
-label_size <- traits_peixes_table[which(traits_peixes_table$Name == "epinephelus.morio"),"Body_size"]
-ep_mor <- ggplot(dat, aes(x=Size, group=Name)) + 
-  geom_density(size=2) + theme_classic()+
-  annotate("text",x=1,xmin=1,y=0.32,ymin=0.32,label=paste("MaxSize= ",label_size," cm."))+
-  ggtitle ("Epinephelus morio")+coord_cartesian(ylim=c(0.25, 0.33))
-
-
-# arrange that in a grid(supporting information figure FIg S2.1 ??????)
-grid.arrange(my_ac,hol_ad,ep_mor)
-
 
 ### -------------------- #
 ###  assessing model fit
@@ -275,22 +224,18 @@ extracted_data <-   lapply (seq(1,length(coral_species)), function (coral)
         
         peixe = gsub("\\."," ", paste0(toupper(substr(fish_species [[coral]][fish], 1, 1)), 
                                        substr(fish_species [[coral]][fish], 2, 100))),
-        
+        # intercept and credible interval
         intercept = mean (samples_OCCcoral_PdepthTime_longo_RdmP[[coral]]$sims.list$intercept.psi [,fish]),
-        
         low.int = quantile (samples_OCCcoral_PdepthTime_longo_RdmP[[coral]]$sims.list$intercept.psi [,fish], 0.05),
-        
         high.int = quantile (samples_OCCcoral_PdepthTime_longo_RdmP[[coral]]$sims.list$intercept.psi [,fish], 0.95),
-        
+        # regression coefficient and credible interval
         estimate = mean (samples_OCCcoral_PdepthTime_longo_RdmP[[coral]]$sims.list$beta1 [,fish]),
-        
         low = quantile (samples_OCCcoral_PdepthTime_longo_RdmP[[coral]]$sims.list$beta1 [,fish], 0.05),
-        
         high = quantile (samples_OCCcoral_PdepthTime_longo_RdmP[[coral]]$sims.list$beta1 [,fish],0.95)
         
         
-      )
-    )
+       )
+     )
     )
   )
 
@@ -304,34 +249,36 @@ extracted_data<- lapply (seq(1,length(extracted_data)), function (i)
 write.table (do.call(rbind, extracted_data),
              file=here("output_comm_wide","coefs_fit_longo.csv"),sep=";")
 
-## plots
+#############################################################
+## plots of regression coefficients (fig 3 of the main text)
 
-sp_analyzed <- lapply (seq (1,length(extracted_data)), function (i) {
+
+sp_analyzed <- lapply (seq (1,length(extracted_data)), function (i) { # for each fish community
   
   teste <- extracted_data[[i]]
   
-  ## organizar nomes das spp no eixo Y
-  ## subset de millepora 
+  ## organize spp names in axis-Y
+  ## subset of each coral species
   subset1 <- traits_peixes_table[which(traits_peixes_table$Name %in% unique (teste$peixe)),c("Name", "Body_size", "Diet")]
   subset1 <- subset1 [order (subset1$Body_size,decreasing=F),]
-  # organizing species according to size
+  # ordering species according to body size
   teste <- teste[order(match(teste$peixe,subset1$Name)),]
   teste$peixe <- gsub("\\."," ", paste0(toupper(substr(teste$peixe, 1, 1)), substr(teste$peixe, 2, 100)))
   teste$peixe <- factor (teste$peixe,
                          levels = unique(teste$peixe))
   
-  ## removing species with negative coefficient
-  rem_sp_neg <- teste [which(teste$estimate < 0 & teste$high < 0),"peixe"]
-  ## removing too imprecise estimates
+  ## listing spp with with negative and significant coefficient
+  rem_sp_neg <- teste [which(teste$estimate < 0 & teste$high < 0),"peixe"] # higher and lower CI lower than 0 
+  ## listing spp with too imprecise estimates (absolute difference of 20 SD)
   rem_sp_imp <- teste [which (abs(teste$low -   teste$high) >= 20),"peixe"]
-  ## removing
+  ## removing these spp
   rem_sp <-c(as.character(rem_sp_imp),as.character(rem_sp_neg))
   teste <- teste [which(teste$peixe %in% rem_sp != T),]
   
-  # plot
+  # plotting
   dodge <- c(0.2,0.2)
   pd <- position_dodge(dodge[i])
-  
+  # coefficients
   a <- ggplot (teste, aes  (y=peixe, x=estimate, fill=coral,
                             colour=coral)) + 
     geom_errorbar(aes(xmin=low,xmax=high),width = 0,
@@ -350,7 +297,8 @@ sp_analyzed <- lapply (seq (1,length(extracted_data)), function (i) {
            axis.text = element_text(size=5))
   
   # regression shapes
-  
+  # it can be useful if you don't know how the shape of the relationship between
+  # occupancy and coral cover looks like
   data_shape <- lapply (c (-8,-2,0,2,8), function (i)
     
     data.frame (cc=seq(-2,2,0.1),
@@ -366,7 +314,7 @@ sp_analyzed <- lapply (seq (1,length(extracted_data)), function (i) {
              axis.ticks = element_blank()) 
   )
   
-  
+  # save as pdf
   pdf (file=here("output_comm_wide", paste (i,"longob_neg.pdf",sep="_")),width=4,heigh=3)
   grid.arrange(
     plot_eff [[1]],
@@ -406,7 +354,7 @@ sp_analyzed <- lapply (seq (1,length(extracted_data)), function (i) {
   
 })
 
-## barplot 
+## barplot to inset into the coeff plot
 bar_plot_data <-lapply (extracted_data, function (i)
   
   data.frame (
@@ -470,23 +418,27 @@ dev.off()
 # ------------------------------------------------------- #
 # functional spaces
 # here considering that all fish species with influence 
-# of corals would disappear in the future
+# of corals would disappear in a future coral-less world
 # ------------------------------------------------------ #
 
+#---------------------------------------
+# 		LOSS PER CORAL
+# ------------------------------------
+
 # a complete functional space per species of coral
-
-total <- do.call (rbind,extracted_data)
-
-f.space <- lapply (unique (total$coral), function(k) {
+total <- do.call (rbind,extracted_data) # rbind extracted data (with coefficients and CI)
+# building functional space per coral spp
+f.space <- lapply (unique (total$coral), function(k) { # for each coral species
   
-  # dfish traits
+  # get fish traits of its community
   subset1 <- traits_peixes_table [which(traits_peixes_table$Name %in% 
                                     unique(total$peixe)),
                             c("Name","Body_size", 
                               "Size_group",
                               "Aspect_ratio",
                               "Trophic_level")]
-  
+
+  # adjust traits (group size as an ordered variable)
   subset1$Size_group <- sapply(subset1$Size_group , function(x) {
     if (x=="sol") {1} 
     else if (x=="pair") {2} 
@@ -494,9 +446,9 @@ f.space <- lapply (unique (total$coral), function(k) {
     else if (x=="medg") {4} 
     else if (x=="largeg") {5}}
   )
-  
   subset1$Size_group <-ordered (subset1$Size_group)
   rownames(subset1) <- subset1$Name; subset1<- subset1[,-1]
+  # rm missing data
   subset1 <- subset1[which(is.na(subset1$Aspect_ratio)==F),]
   
   # first calculate gower distance on traits
@@ -509,7 +461,7 @@ f.space <- lapply (unique (total$coral), function(k) {
   
   # estimate quality of f space
   quality<-quality_funct_space_fromdist( gower_matrix,  nbdim=10,   
-                                         plot="quality_funct_space_I") 
+                                         plot="quality_funct_space_I") # it will produce a plot (hosted in the root folder)
   
   ## only the frst axis
   Inertia.first <- (pco$eig[1]) /(sum(pco$eig))
@@ -520,51 +472,47 @@ f.space <- lapply (unique (total$coral), function(k) {
   
   ## complete space
   all <- cbind (pco$li[,1:2],ext = F)
-  
-  a <- all [chull(all[,1:2], y = NULL),]
-  #a [order(a$A1,decreasing=T),]
-  #a [order(a$A2,decreasing=T),]
+  a <- all [chull(all[,1:2], y = NULL),] # its convex hull
   
   ## extracted data of impaired species of each coral spp
   subset_coral <- total[which(total$coral == k),] 
-  fuck_sp <- subset_coral [which(subset_coral$low >0),"peixe"]
+  impaired_sp <- subset_coral [which(subset_coral$low >0),"peixe"]
    
   # reduced space
-  setB<-cbind(all, ext1=ifelse(rownames(all) %in% fuck_sp,T,F))
+  setB<-cbind(all, ext1=ifelse(rownames(all) %in% impaired_sp,T,F))
   pk <-setB[which(setB$ext1==F),]
   f <- pk [chull(pk, y = NULL),]
   
   ## quantifying reduction in functional space
-  
   # https://chitchatr.wordpress.com/2015/01/23/calculating-the-area-of-a-convex-hull/
   chull.poly.complete <- Polygon(a[,1:2], hole=F)
   chull.area.complete <- chull.poly.complete@area
   
-  ## if it is not possible to calculate funct space, then report NA
-  if (length(fuck_sp) < 2) {
+  ## if it is not possible to calculate reduction in funct space, then report NA
+  if (length(impaired_sp) < 2) {
     red.space <- data.frame (exc=NA, 
                              comp=chull.area.complete, 
                              red=chull.area.complete)
   }   else { 
     chull.poly.exc <- Polygon(f[,1:2], hole=F)
     chull.area.exc <- chull.poly.exc@area
-    ## calculate the diff aftering excluding coral-reliant species
+    ## calculate the diff after excluding coral-associated fish
     ## how much the complete space is larger than the excluded one
     red.space <- data.frame (exc=chull.area.exc, 
                              comp=chull.area.complete, 
                              red=chull.area.exc/chull.area.complete)
   }
   
-  ## plot A
+  ###########
+  ## plot A (complete space)
   plotA <- ggplot(a, aes(A1, A2)) + 
     geom_point() + theme_bw()+
-    geom_polygon(data=a, aes (A1,A2),alpha=0.5,fill="gray") + 
-    geom_polygon(data=f, aes (A1,A2,group=ext1, fill=ext1),alpha=0.5,
+    geom_polygon(data=a, aes (A1,A2),alpha=0.5,fill="gray") + # complete space
+    geom_polygon(data=f, aes (A1,A2,group=ext1, fill=ext1),alpha=0.5, # reduced space
                  fill="black",size=3) +
     xlim(min (a$A1)-0.2,max (a$A1)+0.2)
   
-  
-  ## correlations
+  ## correlations to project trait values into the ordination
   subset1$Size_group <- as.numeric (subset1$Size_group)
   correlations <- cor (pco$li[is.na(subset1$Aspect_ratio) !=T,1:2],
                        subset1[is.na(subset1$Aspect_ratio) !=T,])
@@ -599,23 +547,23 @@ f.space <- lapply (unique (total$coral), function(k) {
                  arrow = arrow(length = unit(.35, "cm"))) + 
     annotate(geom="text",x=correlations[1,4]*0.25,
              y=correlations[2,4]*0.25,label="Trophic level")
-  
+  #save
   ggsave(here ("output_comm_wide",filename = paste ("Fspace_longo_allcorals",k,".pdf")), 
          width = 4,height=4) 
   
-  ## things to report
+  ## results to report
   res <- list (space = red.space,
                quality=quality,
                first.axis = Inertia.first,
                scnd.axis = Inertia.scnd,
-               fuck_sp = fuck_sp)
+               impaired_sp = impaired_sp)
   ;
   
   res
   
 })
 
-unique(unlist(sapply (f.space, "[[","fuck_sp"))) [order(unique(unlist(sapply (f.space, "[[","fuck_sp"))))]
+unique(unlist(sapply (f.space, "[[","impaired_sp"))) [order(unique(unlist(sapply (f.space, "[[","impaired_sp"))))]
 
 # variation in space reduction 
 # (exc = space afte exclusion)
@@ -624,9 +572,11 @@ unique(unlist(sapply (f.space, "[[","fuck_sp"))) [order(unique(unlist(sapply (f.
 
 sapply (f.space, "[[","space")
 
-# global space (binding all fishes and removing all reliant)
-# a complete functional space per species of coral
+# --------------------------------------------
+# 		TOTAL LOSS
+# -------------------------------------------
 
+# global space (binding all fishes and removing all associated)
 total <- do.call (rbind,extracted_data)
 
 # dfish traits
@@ -637,6 +587,7 @@ subset1 <- traits_peixes_table [which(traits_peixes_table$Name %in%
                             "Aspect_ratio",
                             "Trophic_level")]
 
+# GROUP SIZE AS ORDERED VARIABLE
 subset1$Size_group <- sapply(subset1$Size_group , function(x) {
   if (x=="sol") {1} 
   else if (x=="pair") {2} 
@@ -644,7 +595,6 @@ subset1$Size_group <- sapply(subset1$Size_group , function(x) {
   else if (x=="medg") {4} 
   else if (x=="largeg") {5}}
 )
-
 subset1$Size_group <-ordered (subset1$Size_group)
 rownames(subset1) <- subset1$Name; subset1<- subset1[,-1]
 subset1 <- subset1[which(is.na(subset1$Aspect_ratio)==F),]
@@ -661,23 +611,19 @@ Inertia.first <- (pco$eig[1]) /(sum(pco$eig))
 ## only the frst axis
 Inertia.scnd <- (pco$eig[2]) /(sum(pco$eig))
 
-## complete space
+# complete space
 all <- cbind (pco$li[,1:2],ext = F)
-
-a <- all [chull(all[,1:2], y = NULL),]
-#a [order(a$A1,decreasing=T),]
-#a [order(a$A2,decreasing=T),]
+a <- all [chull(all[,1:2], y = NULL),]# its convex hull
 
 ## extracted data of impaired species of each coral spp
-fuck_sp <- unique(total [which(total$low >0),"peixe"])
+impaired_sp <- unique(total [which(total$low >0),"peixe"])
 
 # reduced space
-setB<-cbind(all, ext1=ifelse(rownames(all) %in% fuck_sp,T,F))
+setB<-cbind(all, ext1=ifelse(rownames(all) %in% impaired_sp,T,F))
 pk <-setB[which(setB$ext1==F),]
-f <- pk [chull(pk, y = NULL),]
+f <- pk [chull(pk, y = NULL),] # reduced hull area
 
 ## quantifying reduction in functional space
-
 # https://chitchatr.wordpress.com/2015/01/23/calculating-the-area-of-a-convex-hull/
 chull.poly.complete <- Polygon(a[,1:2], hole=F)
 chull.area.complete <- chull.poly.complete@area
@@ -697,16 +643,16 @@ if (length(fuck_sp) < 2) {
                            red=chull.area.exc/chull.area.complete)
 }
 
-## plot A
+# plotting
+## plot A (complete)
 plotA <- ggplot(a, aes(A1, A2)) + 
   geom_point() + theme_bw()+
-  geom_polygon(data=a, aes (A1,A2),alpha=0.5,fill="gray") + 
-  geom_polygon(data=f, aes (A1,A2,group=ext1, fill=ext1),alpha=0.5,
+  geom_polygon(data=a, aes (A1,A2),alpha=0.5,fill="gray") + # complete space
+  geom_polygon(data=f, aes (A1,A2,group=ext1, fill=ext1),alpha=0.5, # reduced space
                fill="black",size=3) +
   xlim(min (a$A1)-0.2,max (a$A1)+0.2)
 
-
-## correlations
+## correlations to project trait values into the ordination plot
 subset1$Size_group <- as.numeric (subset1$Size_group)
 correlations <- cor (pco$li[is.na(subset1$Aspect_ratio) !=T,1:2],
                      subset1[is.na(subset1$Aspect_ratio) !=T,])
@@ -753,9 +699,9 @@ res_global <- list (space = red.space,
 
 res_global$space # functional space (remember RTS = 1-red)
 
-#- -------------------------
-# random loss
-# ---------------------------
+#- -----------------------------------------
+# 		RANDOM LOSS SCENARIO
+# ----------------------------------------
 
 # dfish traits
 subset1 <- traits_peixes_table [which(traits_peixes_table$Name %in% 
@@ -765,6 +711,7 @@ subset1 <- traits_peixes_table [which(traits_peixes_table$Name %in%
                             "Aspect_ratio",
                             "Trophic_level")]
 
+# group size as an ordered variable
 subset1$Size_group <- sapply(subset1$Size_group , function(x) {
   if (x=="sol") {1} 
   else if (x=="pair") {2} 
@@ -772,7 +719,6 @@ subset1$Size_group <- sapply(subset1$Size_group , function(x) {
   else if (x=="medg") {4} 
   else if (x=="largeg") {5}}
 )
-
 subset1$Size_group <-ordered (subset1$Size_group)
 rownames(subset1) <- subset1$Name; subset1<- subset1[,-1]
 subset1 <- subset1[which(is.na(subset1$Aspect_ratio)==F),]
@@ -791,19 +737,17 @@ Inertia.scnd <- (pco$eig[2]) /(sum(pco$eig))
 
 ## complete space
 all <- cbind (pco$li[,1:2],ext = F)
-
-a <- all [chull(all[,1:2], y = NULL),]
-#a [order(a$A1,decreasing=T),]
-#a [order(a$A2,decreasing=T),]
+a <- all [chull(all[,1:2], y = NULL),] # its hull
 
 ## extracted data of impaired species of each coral spp
-fuck_sp <- replicate (100,sample (total$peixe,
-  length(unique(total [which(total$low >0),"peixe"]))))
+impaired_sp <- replicate (100,sample (total$peixe,# 100 samples 
+  length(unique(total [which(total$low >0),"peixe"]))))# of size equal N associated fish
 
-extinction_random <- lapply(seq (1,ncol(fuck_sp)), function (i) {
+# run random sampling
+extinction_random <- lapply(seq (1,ncol(impaired_sp)), function (i) {
   
   # reduced space
-  setB<-cbind(all, ext1=ifelse(rownames(all) %in% fuck_sp[,i],T,F))
+  setB<-cbind(all, ext1=ifelse(rownames(all) %in% impaired_sp[,i],T,F))
   pk <-setB[which(setB$ext1==F),]
   f <- pk [chull(pk, y = NULL),]
 
@@ -832,14 +776,14 @@ extinction_random <- lapply(seq (1,ncol(fuck_sp)), function (i) {
   }
 })
   
-#save (extinction_random,file=here ("output_comm_wide", "extinction_random.RData"))
+# extract interesting result
 random_ext_pol <- sapply (extinction_random, "[","coord_space")
-
 
 ## plot A
 plotA <- ggplot(a, aes(A1, A2)) + 
     geom_point() + theme_bw()+
-    geom_polygon(data=a, aes (A1,A2),alpha=0.7,fill="gray10") + 
+    geom_polygon(data=a, aes (A1,A2),alpha=0.7,fill="gray10") + # complete
+	# and then each randomly reduced space
     geom_polygon(data=random_ext_pol[[1]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
                fill="white",size=3) +
   geom_polygon(data=random_ext_pol[[1]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
@@ -1052,7 +996,7 @@ plotA <- ggplot(a, aes(A1, A2)) +
 
 plotA
 
-## correlations
+## correlations to project trait values into the ordination plot
 subset1$Size_group <- as.numeric (subset1$Size_group)
 correlations <- cor (pco$li[is.na(subset1$Aspect_ratio) !=T,1:2],
                      subset1[is.na(subset1$Aspect_ratio) !=T,])
@@ -1102,6 +1046,7 @@ apply(do.call(rbind,sapply (extinction_random,"[","red.space")),2,sd)
 
 # ---------------------------------------------------------------- #
 # check the amount of functional space occupied by the 47 spp
+# supporting information
 
 # dfish traits
 subset1 <- traits_peixes [which(gsub(" ",".",tolower (traits_peixes$Name)) %in% 
