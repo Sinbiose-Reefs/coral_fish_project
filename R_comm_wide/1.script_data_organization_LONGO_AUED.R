@@ -9,6 +9,9 @@
 source("R/packages.R")
 source("R/functions.R")
 
+# create a folder to receive the output
+dir.create("output_comm_wide")
+
 # -------------------------------------------------------------------------- #
 # listing the ID sites with larger coral cover based on Aued et al. 2018 PLosOne
 # -------------------------------------------------------------------------- #
@@ -47,11 +50,8 @@ bentos <- bentos [which(bentos$Locality %in% locais_corais),] # which sites are 
 L.peixes <- L.peixes [which(L.peixes$location %in% locais_corais),]# which sites are in the list of sites
 
 # nspp Longo et al. 
-
 unique_spp_longo138 <- unique(L.peixes$ScientificName)
 
-# save to further interpretation (functional space)
-# save (unique_spp_longo138, file=here("output","unique_spp_longo138.RData"))
 
 # modify eventID by removing 'year'
 
@@ -524,6 +524,7 @@ coordenadas <- coordenadas [match(sitios_bentos,coordenadas$Group.1),]# order ba
 # -------------------------------------------------
 # Finally, we match fish and coral data
 # avoid spatial mismatch between species
+
 site_peixe_detection <- apply(arranjo_longo_sitio_video,c(1,3),sum,na.rm=T) # sites with fish detection
 site_coral_detection <- ifelse (sp_cover_data>0,1,0)# sitse with coral detection
 # which corals occur in a min of sites
