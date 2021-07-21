@@ -73,7 +73,7 @@ df_coef_time <- lapply (df_coef_time, function (i)
   i[order (i$size,decreasing=F),]
 )
 
-# working round with size
+# ordering based on body size and group size
 df_coef_time <- lapply (df_coef_time, function (i) {
     i$peixe <- factor(i$peixe,
                       levels = i$peixe[order(i$size,decreasing=F)])
@@ -192,5 +192,6 @@ ggplot (df_coef_time,aes (x=group, y=meanP)) +
 
 ggsave (here("output_comm_wide", "detectionVideo_group.png"),width=4,height = 4)
 
+# end
 
 
