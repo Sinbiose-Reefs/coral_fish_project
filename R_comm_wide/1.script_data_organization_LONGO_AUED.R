@@ -1,6 +1,6 @@
 # ------------------------------------------
 # Organizing data (video plots and photoquadrats)
-# fish vulnerability to live coral cover loss in southwestern atlantic reefs
+# fish vulnerability to live coral loss in Southwestern Atlantic reefs
 
 # First we need to create a 3D array of sites x sampling occasion (video plot) x species.
 # And then we transform the 3D array into a long format data frame, to remove NAs
@@ -683,3 +683,4 @@ save (subset_peixes, # array of fishes after spatial matching checking
       todas_sp_longo,## id of all fishes detected by Longo et al. 2019
       file = here("output_comm_wide", "Data_fish_detection_LONGO_AUED.RData"))
 
+# end

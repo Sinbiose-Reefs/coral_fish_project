@@ -35,7 +35,7 @@ cat("
            }
         }
          
-        ## alpha1 - effect of time on detection p
+        ## alpha1 - effect of time of recording on detection p
         # it also comes from the community
         for (k in 1:nspec) {
             alpha1.time[k] ~ dnorm (mu.time[k],tau.time[k]) 
@@ -70,13 +70,10 @@ cat("
       
         ## regression coefficient
         for (k in 1:nspec) {
-        #  for (j in 1:nreg){
               beta1[k] ~ dnorm (mu.int[k],tau.mu[k])  
-        #     ## priors for them
               mu.int[k] ~ dnorm(0, 0.001)
               tau.mu[k] <- 1/(sigma.int[k]*sigma.int[k])
               sigma.int[k] ~ dunif(0,10)
-        #   }
         }
       
         # Ecological submodel: Define state conditional on parameters
@@ -345,3 +342,5 @@ stopCluster(cl)
 # save it
 save(samples_OCCcoral_PdepthTime_longo_RdmP, 
      file=here("output_comm_wide","samples_OCCcoral_PdepthTime_longo_RdmP.RData"))
+
+# end

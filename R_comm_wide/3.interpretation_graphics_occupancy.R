@@ -17,16 +17,16 @@ source("R/quality_funct_space_fromdist2.R")
 # mapa mundi
 world <- ne_countries(scale = "medium", returnclass = "sf")
 
-# cortar o mapa para ver a america do Sul e parte da central
+# crop mapa mundi
 wm <- ggplot() + 
   geom_sf (data=world, size = 0.1, 
            fill= "gray90",colour="gray90") +
   coord_sf (xlim = c(-50, -30),  ylim = c(-27, 2), expand = FALSE) +
-  theme_bw() + #xlab ("Longitude")  + ylab ("Latitude") +
+  theme_bw() +
   theme(panel.border = element_blank(), 
         panel.grid.major = element_blank(), 
         panel.grid.minor = element_blank(),
-        panel.background = element_rect(fill = "lightcyan",#darkslategray1
+        panel.background = element_rect(fill = "lightcyan",
                                         colour = "lightcyan"),
         axis.text.x = element_text(size=6),
         axis.ticks.x=element_line(size=1),
@@ -134,7 +134,7 @@ load(here("output_comm_wide","samples_OCCcoral_PdepthTime_longo.RData"))
 load(here("output_comm_wide","samples_OCCcoral_PdepthTime_longo_RdmP.RData")) 
 
 # ---------------------------------------- #
-# FIGURE 2, FISH RELIANCE ON CORAL COVER
+# FIGURE 2, FISH ASSOCIATION TO CORAL COVER
 # ---------------------------------------- #
 
 ## load trait data
