@@ -1,0 +1,1 @@
+Repository of data and R/JAGS routines used in the project 'fish vulnerability to coral declines in the Brazilian reefs'
