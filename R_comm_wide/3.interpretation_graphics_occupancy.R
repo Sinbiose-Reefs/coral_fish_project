@@ -1,18 +1,23 @@
-## code with routine for result interpretation
+## code with routine for interpretation of the results
 
 # upper part, occupancy
 # inner part, detection
 
 # load packages and functions
-source ("R/packages.R")
-source ("R/functions.R")
+source ("R_comm_wide/packages.R")
+source ("R_comm_wide/functions.R")
 
 ## function to test space quality
-source("R/quality_funct_space_fromdist2.R")
+source("R_comm_wide/quality_funct_space_fromdist2.R")
 
-# ---------------------# 
-# MAP (figure 1)
-# ---------------------#
+
+# ------------------------------# 
+
+
+#       MAP (figure 1)
+
+
+# ------------------------------#
 
 # mapa mundi
 world <- ne_countries(scale = "medium", returnclass = "sf")
@@ -21,7 +26,7 @@ world <- ne_countries(scale = "medium", returnclass = "sf")
 wm <- ggplot() + 
   geom_sf (data=world, size = 0.1, 
            fill= "gray90",colour="gray90") +
-  coord_sf (xlim = c(-50, -30),  ylim = c(-27, 2), expand = FALSE) +
+  coord_sf (xlim = c(-60, -23),  ylim = c(-30, 2), expand = FALSE) +
   theme_bw() +
   theme(panel.border = element_blank(), 
         panel.grid.major = element_blank(), 
@@ -36,42 +41,80 @@ wm <- ggplot() +
         axis.title.y = element_text(size=8),
         title = element_blank()) 
 
-# ---------------------# 
-# fish data  -  LONGo
-# ---------------------# 
 
-load (here("output_comm_wide","Data_fish_detection_LONGO_AUED.RData"))
+# ----------------------------# 
 
-## coral detection - with coordinates - LONGO
-load (here("output_comm_wide","Data_coral_detection_LONGO_AUED.RData"))
+# load fish and coral data
 
-# col for none cover
-sp_cover_data_longo <- cbind(sp_cover_data,
-                              None=ifelse (rowSums (sp_cover_data) ==0, 1,0))
+# ----------------------------# 
 
-# jittered coordinates
-sp_cover_data_longo <- cbind (sp_cover_data_longo,
-                               LonJitter = jitter (coordenadas$Lon,factor=400),
-                               LatJitter=jitter (coordenadas$Lat,factor=600))
-# transforming into DF
-sp_cover_data_longo <- as.data.frame(sp_cover_data_longo)
 
-# discounting a bit of long to longo's data
-sp_cover_data_longo$LonJitter <- sp_cover_data_longo$LonJitter# + 6
+load (here("output_comm_wide_R1","Data_fish_detection_LONGO_AUED.RData"))
+
+
+# summarize information for corals and turf
+cob_bentos_turf_corals <- cob_bentos [,which(colnames(cob_bentos) %in% c("calcareous turf",coral_species))]
+cob_bentos_turf_corals <- cob_bentos_turf_corals/rowSums(cob_bentos_turf_corals) # cover relative to total cover in the site
+# find the total covered by corals
+cob_bentos_turf_corals$corals <- 1- cob_bentos_turf_corals$`calcareous turf`
+cob_bentos_turf_corals$None <- ifelse (cob_bentos_turf_corals$corals == 0,1,0)
+
+# bind coordinates  to project in space the cover of these benthic components
+
+cob_bentos_turf_corals <- cbind (cob_bentos_turf_corals,
+                                 coordenadas)
+
+
+
+# jitter long and lat
+
+cob_bentos_turf_corals <- cbind (cob_bentos_turf_corals,
+                                LonJitter = jitter (cob_bentos_turf_corals$decimalLongitude,factor=400),
+                                LatJitter=jitter (cob_bentos_turf_corals$decimalLatitude,factor=600))
+
+
 
 ## advice to jitter : https://stackoverflow.com/questions/52806580/pie-charts-in-geom-scatterpie-overlapping
-## pie: http://www.spectdata.com/index.php/2018/10/25/how-to-use-ggplot-to-plot-pie-charts-on-a-map/
+## pie chart: http://www.spectdata.com/index.php/2018/10/25/how-to-use-ggplot-to-plot-pie-charts-on-a-map/
 
-# pie chart with sites of Morais
-wm_pie_longo <- wm + geom_scatterpie(aes(x=LonJitter, y=LatJitter),
-                               data = sp_cover_data_longo,
-                               cols = c("Millepora.alcicornis",
-                                        "Mussismilia.hispida",
-                                        "Porites.astreoides",
-                                        "Siderastrea.spp",
-                                        "None"),
+
+# pie chart 
+
+
+plot1_turf <- wm + geom_scatterpie(aes(x=LonJitter, y=LatJitter),
+                     data = cob_bentos_turf_corals,
+                     cols = c("calcareous turf","corals"),
+                     pie_scale = 2,
+                     size=0.2,
+                     alpha = 0.65,
+                     color="black",
+                     sorted_by_radius = F,
+                     legend_name = "Corals")  
+  
+
+
+# jitter to separate pie charts
+
+
+further_jitter <-cob_bentos_turf_corals 
+further_jitter$LonJitter<-further_jitter$LonJitter+5
+
+
+# plot turf and total coral cover
+
+plot2_corals <- plot1_turf + geom_scatterpie(aes(x=LonJitter, y=LatJitter),
+                               data =further_jitter ,
+                              cols = c("agaricia spp",
+                                       "favia gravida",
+                                       "millepora alcicornis",
+                                       "montastraea cavernosa",
+                                       "mussismilia harttii",
+                                       "mussismilia hispida",
+                                       "porites astreoides",
+                                       "siderastrea spp",
+                                     "None"),
                                pie_scale = 2,
-                               size=0.3,
+                               size=0.2,
                                alpha = 0.65,
                                color="black",
                                sorted_by_radius = F,
@@ -79,7 +122,7 @@ wm_pie_longo <- wm + geom_scatterpie(aes(x=LonJitter, y=LatJitter),
   
   theme (legend.title = element_text(size=8),
          legend.text = element_text(size=7),
-         legend.position = c(.35, .7),
+         legend.position = c(.35, .8),
          legend.justification = c("right", "top"),
          legend.box.just = "right",
          legend.margin = margin(6,6,6,6),
@@ -87,171 +130,302 @@ wm_pie_longo <- wm + geom_scatterpie(aes(x=LonJitter, y=LatJitter),
          title=element_text(size=8)) 
 
 
-wm_pie_longo <- wm_pie_longo + scale_fill_manual(
-  
-    values= c("Millepora.alcicornis" = "#ca0020",
-               "Montastraea.cavernosa" = "#dfc27d",
-               "Mussismilia.hispida" = "#0571b0",
-               "Porites.astreoides" = "#FF8000",
-               "Siderastrea.spp" = "#FCBDBD",
-               "None" = "#FFFFFF"))
+# plot the cover of each coral species
 
-wm_pie_longo <- wm_pie_longo + #ggtitle("Species cover relative to total coral cover")+
+plot2_corals <- plot2_corals +  scale_fill_manual(
+  
+    values= c("calcareous turf"="#9EB23B", 
+              "corals" = "#990000",
+              "agaricia spp" = "#ff6961",
+              "favia gravida" = "#ffb480",
+              "millepora alcicornis" = "#f8f38d",
+               "montastraea cavernosa" = "#42d6a4",
+              "mussismilia harttii" = "#08cad1",
+               "mussismilia hispida" = "#59adf6",
+               "porites astreoides" = "#9d94ff",
+               "siderastrea spp" = "#c780e8",
+              "None" = "white"))
+
+# labs for x and y axes
+wm_pie_longo <- plot2_corals + #ggtitle("Species cover relative to total coral cover")+
   xlab("Longitude") + ylab("Latitude")
 
-pdf(here ("output_comm_wide", "MapPoints_longo.pdf"),
+# histogram showing the average coral cover
+df_hist <- data.frame (cover = cob_bentos$`calcareous turf`,
+                       group = "turf")
+df_hist <- rbind (df_hist, 
+                  
+                    data.frame (cover = apply (cob_corals[,-1],1,sum),
+                                       group = "corals")) 
+
+# hist
+# corals
+corals_hist <- ggplot (data = df_hist[which(df_hist$group == "corals"),], 
+        aes (x = cover*100), fill = group) +
+   
+  geom_histogram(bins = 20,fill="#990000") +
+  geom_vline(xintercept = mean(df_hist[which(df_hist$group == "corals"),"cover"]*100),
+             size = 2)+
+  xlab ("Average cover") + 
+  ylab ("Frequency (number of sites)") + 
+  theme_classic() 
+ 
+
+## turf
+turf_hist <- ggplot (data = df_hist[which(df_hist$group == "turf"),], 
+                       aes (x = cover*100), fill = group) +
+  
+  geom_histogram(bins = 20,fill="#9EB23B") +
+  geom_vline(xintercept = mean(df_hist[which(df_hist$group == "turf"),"cover"]*100),
+             size = 2)+
+  xlab ("Average cover") + 
+  ylab ("Frequency (number of sites)") + 
+  theme_classic()
+
+# save in pdf
+
+pdf(here ("output_comm_wide_R1", "MapPoints_longo.pdf"),
     width = 10,heigh=7)
-  wm_pie_longo
+
+grid.arrange(corals_hist,
+             turf_hist,
+             wm_pie_longo,
+             ncol = 4,
+             nrow=5,
+             layout_matrix = rbind (c(NA,1,2,NA),
+                                    rep(3,4),
+                                    rep(3,4),
+                                    rep(3,4),
+                                    rep(3,4)))
+  
+
 dev.off()
+
+
+# avreages
+
+aggregate (df_hist, by  = list (df_hist$group), mean,na.rm=T)
+aggregate (df_hist, by  = list (df_hist$group), range,na.rm=T)
+
+# ---------------------------------------- #
+
+#           ORGANIZE TRAIT DATA
+
+# ---------------------------------------- #
+
+
+## get data from Quimbayo et al. 2021
+
+#  please check if it is correct
+require(dplyr)
+
+trait_dataset <- fish_size %>%
+  
+  select(scientificName, 
+         measurementValue,  # actually the measurement of size
+         Fish_age,
+         Body_size,
+         Aspect_ratio,Trophic_level, Size_group,
+         TempPref_max, Depth_max) %>%
+  
+  group_by(scientificName,Fish_age) %>% 
+  
+  summarise (actual_size=mean(as.numeric(measurementValue),na.rm=T),
+             Body_size = mean(Body_size,na.rm=T),
+             Aspect_ratio = mean(Aspect_ratio,na.rm=T),
+             Trophic_level = mean(Trophic_level,na.rm=T),
+             Size_group = unique(Size_group),
+             TempPref_max = mean(TempPref_max,na.rm=T),
+             Depth_max = mean(Depth_max,na.rm=T)) %>% # count the number of rows that a given answered appeared
+  
+  mutate (log_actual_size = log(actual_size),
+          log_Body_size = log(Body_size),
+          ordered_Size_group = ordered(Size_group, 
+                                       levels = c("sol","pair", "smallg",
+                                                  "medg", "largeg"))) 
+
+
+# analyzed fish
+# number of analyzed species
+adult <- lapply (fish_species, function (i) i[[1]]) 
+adult<-unique(unlist(adult)) # adult
+juvenile <- lapply (fish_species, function (i) i[[2]]) 
+juvenile<-unique(unlist(juvenile))#juvenile
+table(juvenile %in% adult)# both
+
+# subset
+trait_dataset <- trait_dataset[which(trait_dataset$scientificName %in% unique(c(adult, juvenile))),]
+
+# ordering group size
+trait_dataset$Size_group <- sapply(trait_dataset$Size_group , function(x) {
+  if (x=="sol") {1} 
+  else if (x=="pair") {2} 
+  else if (x=="smallg") {3} 
+  else if (x=="medg") {4} 
+  else if (x=="largeg") {5}}
+)
+
+
+# ------------------------------------------------- #
+# site occupancy estimates
+# ------------------------------------------------- #  
+
+# load model output
+
+
+load(here("output_comm_wide_R1",
+          "samples_OCCcoral_PdepthTime_longo_RdmP.RData")) 
+
+
+# community response
+
+lapply (seq(1,length(samples_OCCcoral_PdepthTime_longo_RdmP)), function (i)
+  samples_OCCcoral_PdepthTime_longo_RdmP [[i]][[1]]$summary [grep("mean.beta1",rownames(samples_OCCcoral_PdepthTime_longo_RdmP[[i]][[1]]$summary)),]
+  #  samples_OCCcoral_PdepthTime_longo_RdmP [[i]][[2]]$summary [grep("mean.beta1",rownames(samples_OCCcoral_PdepthTime_longo_RdmP[[i]][[2]]$summary)),]
+)
+
+# end
+
+sims_to_df <- lapply (seq(1,length(coral_species)), function (i)
+  data.frame (coral = coral_species[i],
+              adult.coral = samples_OCCcoral_PdepthTime_longo_RdmP [[i]][[1]]$sims.list$mean.beta1,
+              juvenile.coral = samples_OCCcoral_PdepthTime_longo_RdmP [[i]][[2]]$sims.list$mean.beta1,
+              adult.turf = samples_OCCcoral_PdepthTime_longo_RdmP [[i]][[1]]$sims.list$mean.beta2,
+              juvenile.turf = samples_OCCcoral_PdepthTime_longo_RdmP [[i]][[2]]$sims.list$mean.beta2)
+)
+sims_to_df<- do.call(rbind, sims_to_df)
+sims_to_df<-melt (sims_to_df)
+sims_to_df$group <- NA
+sims_to_df$group[grep("coral",sims_to_df$variable)] <- "coral"
+sims_to_df$group[grep("turf",sims_to_df$variable)] <- "turf"
+# library
+library(ggridges)
+library(ggplot2)
+
+# ridgeline plot
+assem_res <- ggplot(sims_to_df, aes(x = value, y = coral, fill = variable)) +
+  geom_density_ridges(alpha=0.5) +
+  theme_ridges() + 
+  theme(legend.position = "none") + 
+  scale_fill_manual(values = c("adult.coral" = "#990000",
+                               "juvenile.coral" = "#F47C7C",
+                               "adult.turf" = "#4B8673",
+                               "juvenile.turf" = "#C7D36F")) +
+  facet_wrap(~group,scales = "fixed")
+
+
+
+# community effect
+
+# save as pdf
+pdf (file=here("output_comm_wide_R1",
+               "assemblage_response.pdf"),
+     width=10,heigh=7)
+
+assem_res # save plot
+
+dev.off()
+
 
 # ---------------------------------------- #
 # information of fish species
 # ---------------------------------------- #
 
-load (here("output_comm_wide","Data_fish_detection_LONGO_AUED.RData"))
-sp_longo <- unique(unlist(fish_species))
-
 # 
-tab_spp <- data.frame (sp = sp_longo)#unique spp
+tab_spp <- data.frame (sp = todas_sp_longo[-which(is.na(todas_sp_longo))])#unique spp
 
-# ------------------------------------------------- #  
-# ------------------------------------------------- #
-# site occupancy estimates
-# ------------------------------------------------- #  
-# ------------------------------------------------- #
-  
-# load input data
-## fish data
-load (here("output_comm_wide","Data_fish_detection_LONGO_AUED.RData"))
 
-## coral detection - with coordinates
-load (here("output_comm_wide","Data_coral_detection_LONGO_AUED.RData"))
 
-## LOAD MODEL RESULTS
-load(here("output_comm_wide","samples_OCCcoral_PdepthTime_longo.RData")) 
 
-## LOAD MODEL RESULTS
-load(here("output_comm_wide","samples_OCCcoral_PdepthTime_longo_RdmP.RData")) 
 
-# ---------------------------------------- #
-# FIGURE 2, FISH ASSOCIATION TO CORAL COVER
-# ---------------------------------------- #
-
-## load trait data
-traits_peixes <- read.csv(here("data","traits","Atributos_especies_Atlantico_&_Pacifico_Oriental_2020_04_28.csv"),
-                          h=T,sep=";")
-#adjust names
-traits_peixes$Name <- tolower (gsub (" ",".", traits_peixes$Name))
-traits_peixes$Name <- gsub("\\."," ", paste0(toupper(substr(traits_peixes$Name, 1, 1)), 
-                                             substr(traits_peixes$Name, 2, 100)))
-
-# adjusting trait values
-traits_peixes$Body_size <- as.numeric(gsub (",",".",traits_peixes$Body_size))
-traits_peixes$Aspect_ratio <- as.numeric(gsub (",",".",traits_peixes$Aspect_ratio))
-traits_peixes$Trophic_level <- as.numeric(gsub (",",".",traits_peixes$Trophic_level))
-
-# NAs
-traits_peixes [which(tolower (gsub(" ",".",traits_peixes$Name)) %in% tab_spp$sp),c("Family",
-                                                                                   "Name",
-                                                                                   "Body_size",
-                                                                                   "Diet",
-                                                                                   "Home_range",
-                                                                                   "Size_group",
-                                                                                   "Level_water",
-                                                                                   "Diel_activity",
-                                                                                   "Aspect_ratio",
-                                                                                   "Trophic_level",
-                                                                                   "IUCN_status"
-)]
-
-# imputing a few missing data
-# replacing NAs in aspect ratio by genera average
-## finding genera
-genera <- unlist(
-  lapply (
-    strsplit (traits_peixes$Name [which(is.na(traits_peixes$Aspect_ratio))]," "),"[",1)
-  )
-
-# calculate the average for species with congenera 
-mean_av_ratio <- unlist(lapply (genera, function (i)
-  mean (traits_peixes [grep (i , traits_peixes$Name),"Aspect_ratio"],na.rm=T)
-))
-# imput in the table
-traits_peixes[which(is.na(traits_peixes$Aspect_ratio)),"Aspect_ratio"] <- mean_av_ratio
-
-# subset of the table
-traits_peixes_table <- (traits_peixes [which(tolower (gsub(" ",".",traits_peixes$Name)) %in% tab_spp$sp),c("Family",
-                                                                                       "Name",
-                                                                                       "Body_size",
-                                                                                       "Diet",
-                                                                                       "Home_range",
-                                                                                       "Size_group",
-                                                                                       "Level_water",
-                                                                                       "Diel_activity",
-                                                                                       "Aspect_ratio",
-                                                                                       "Trophic_level",
-                                                                                       "IUCN_status"
-)])
-
-# save to show in supporting info
-write.csv (traits_peixes_table,
-           file=here("output_comm_wide","trait_table.csv"))
 
 ### -------------------- #
 ###  assessing model fit
 ### -------------------- #
 
-bpv_video <- lapply (seq (1,length(samples_OCCcoral_PdepthTime_longo)), function (i) 
-  do.call (rbind, lapply(seq(1,length (fish_species[[i]])), function (k) {
-    
-    bpvID<- sum (samples_OCCcoral_PdepthTime_longo[[i]]$sims.list$Chi2repClosed[,k] > samples_OCCcoral_PdepthTime_longo[[i]]$sims.list$Chi2Closed[,k])/length(samples_OCCcoral_PdepthTime_longo[[i]]$sims.list$Chi2Closed[,k])
-    bpvRdmP<- sum (samples_OCCcoral_PdepthTime_longo_RdmP[[i]]$sims.list$Chi2repClosed[,k] > samples_OCCcoral_PdepthTime_longo_RdmP[[i]]$sims.list$Chi2Closed[,k])/length(samples_OCCcoral_PdepthTime_longo_RdmP[[i]]$sims.list$Chi2Closed[,k])
-    res <- data.frame (sp = gsub ("\\."," ",paste0(toupper(substr(fish_species[[i]][k], 1, 1)), 
-                                                   substr(fish_species[[i]][k], 2, 100))),
-                       mID= round(bpvID,3),
-                       mRdmP=round(bpvRdmP,3));
-    res
-  })))
 
-## data to use in the plot
+
+bpv_video <- lapply (seq (1,length(samples_OCCcoral_PdepthTime_longo_RdmP)), function (coral) # across corals 
+  
+          lapply (seq(1,length(samples_OCCcoral_PdepthTime_longo_RdmP[[coral]])) ,function (age) # across ages
+  
+            do.call (rbind, lapply(seq(1,length (fish_species[[coral]][[age]])), function (k) { # across species
+                    
+                  sum_squares <- sum (samples_OCCcoral_PdepthTime_longo_RdmP[[coral]][[age]]$sims.list$Chi2repClosed[,k] > samples_OCCcoral_PdepthTime_longo_RdmP[[coral]][[age]]$sims.list$Chi2Closed[,k]) 
+                  bpvRdmP<- sum_squares/length(samples_OCCcoral_PdepthTime_longo_RdmP[[coral]][[age]]$sims.list$Chi2Closed[,k])
+                  res <- data.frame (sp = fish_species[[coral]][[age]][k],
+                                     mRdmP=round(bpvRdmP,3))
+                  
+                  ;# return
+                  res
+                  
+        }))
+        )
+)
+      
+      ## data to use in the plot
 extracted_data <-   lapply (seq(1,length(coral_species)), function (coral)
     
-    do.call(rbind,lapply (seq (1, length (fish_species [[coral]])), function (fish)
+  lapply (seq(1,length(samples_OCCcoral_PdepthTime_longo_RdmP[[coral]])) ,function (age) # across ages
+    
+    do.call(rbind,lapply(seq(1,length (fish_species[[coral]][[age]])), function (k)  # across fish species
       
       data.frame (
-        
+        # coral
         coral = coral_species[coral],
-        
-        peixe = gsub("\\."," ", paste0(toupper(substr(fish_species [[coral]][fish], 1, 1)), 
-                                       substr(fish_species [[coral]][fish], 2, 100))),
+        # fish
+        peixe = fish_species [[coral]][[age]][k],
+        age = age,
         # intercept and credible interval
-        intercept = mean (samples_OCCcoral_PdepthTime_longo_RdmP[[coral]]$sims.list$intercept.psi [,fish]),
-        low.int = quantile (samples_OCCcoral_PdepthTime_longo_RdmP[[coral]]$sims.list$intercept.psi [,fish], 0.05),
-        high.int = quantile (samples_OCCcoral_PdepthTime_longo_RdmP[[coral]]$sims.list$intercept.psi [,fish], 0.95),
+        intercept = mean (samples_OCCcoral_PdepthTime_longo_RdmP[[coral]][[age]]$sims.list$intercept.psi [,k]),
+        low.int = quantile (samples_OCCcoral_PdepthTime_longo_RdmP[[coral]][[age]]$sims.list$intercept.psi [,k], 0.05),
+        high.int = quantile (samples_OCCcoral_PdepthTime_longo_RdmP[[coral]][[age]]$sims.list$intercept.psi [,k], 0.95),
         # regression coefficient and credible interval
-        estimate = mean (samples_OCCcoral_PdepthTime_longo_RdmP[[coral]]$sims.list$beta1 [,fish]),
-        low = quantile (samples_OCCcoral_PdepthTime_longo_RdmP[[coral]]$sims.list$beta1 [,fish], 0.05),
-        high = quantile (samples_OCCcoral_PdepthTime_longo_RdmP[[coral]]$sims.list$beta1 [,fish],0.95)
+        # corals
+        estimate.coral = mean (samples_OCCcoral_PdepthTime_longo_RdmP[[coral]][[age]]$sims.list$beta1 [,k]),
+        low.coral = quantile (samples_OCCcoral_PdepthTime_longo_RdmP[[coral]][[age]]$sims.list$beta1 [,k], 0.05),
+        high.coral = quantile (samples_OCCcoral_PdepthTime_longo_RdmP[[coral]][[age]]$sims.list$beta1 [,k],0.95),
+        # ruef
+        estimate.turf = mean (samples_OCCcoral_PdepthTime_longo_RdmP[[coral]][[age]]$sims.list$beta2 [,k]),
+        low.turf = quantile (samples_OCCcoral_PdepthTime_longo_RdmP[[coral]][[age]]$sims.list$beta2 [,k], 0.05),
+        high.turf = quantile (samples_OCCcoral_PdepthTime_longo_RdmP[[coral]][[age]]$sims.list$beta2 [,k],0.95)
         
         
-       )
-     )
-    )
-  )
+       ) # close df
+     ) # close fish 
+    ) # close fish
+  ) # close age
+) # close corals
 
 ## binding the bayeasian P- value
-extracted_data<- lapply (seq(1,length(extracted_data)), function (i)
-  cbind (extracted_data[[i]],bpv_video [[i]])
+extracted_data<- lapply (seq(1,length(extracted_data)), function (coral)
+  
+  lapply (seq(1,length(extracted_data[[coral]])), function (age)
+  
+    cbind (extracted_data[[coral]][[age]],bpv_video [[coral]][[age]])
+
+    )
 )
+
+
+# melt these data within age
+extracted_data <- lapply (extracted_data, function (coral)
+  
+  do.call(rbind, coral)
+)
+                                  
+
+
+# put the complete set of results in the main page of the GitHub !!
 
 # save this complete result to be shown in the supoporting information
 # table with all estimates, Credible intervals, and bayesian P-value
-write.table (do.call(rbind, extracted_data),
-             file=here("output_comm_wide","coefs_fit_longo.csv"),sep=";")
+# write.table (do.call(rbind, extracted_data),
+#             file=here("output_comm_wide","coefs_fit_longo.csv"),sep=";")
+
 
 #############################################################
 ## plots of regression coefficients (fig 3 of the main text)
-
 
 sp_analyzed <- lapply (seq (1,length(extracted_data)), function (i) { # for each fish community
   
@@ -259,93 +433,40 @@ sp_analyzed <- lapply (seq (1,length(extracted_data)), function (i) { # for each
   
   ## organize spp names in axis-Y
   ## subset of each coral species
-  subset1 <- traits_peixes_table[which(traits_peixes_table$Name %in% unique (teste$peixe)),c("Name", "Body_size", "Diet")]
+  subset1 <- trait_dataset[which(trait_dataset$scientificName %in% unique (teste$peixe)),
+                           c("scientificName","Fish_age", "Body_size")]
   subset1 <- subset1 [order (subset1$Body_size,decreasing=F),]
   # ordering species according to body size
-  teste <- teste[order(match(teste$peixe,subset1$Name)),]
-  teste$peixe <- gsub("\\."," ", paste0(toupper(substr(teste$peixe, 1, 1)), substr(teste$peixe, 2, 100)))
+  teste <- teste[order(match(teste$peixe,subset1$scientificName)),]
+  
+  
+  # scientificName into factor
   teste$peixe <- factor (teste$peixe,
                          levels = unique(teste$peixe))
   
-  ## listing spp with with negative and significant coefficient
-  rem_sp_neg <- teste [which(teste$estimate < 0 & teste$high < 0),"peixe"] # higher and lower CI lower than 0 
+  
+  ## listing spp with with negative coefficient
+  rem_sp_neg <- teste [which(teste$estimate.coral < 0 | teste$high.coral < 0),"peixe"] # higher and lower CI lower than 0 
+  
   ## listing spp with too imprecise estimates (absolute difference of 20 SD)
-  rem_sp_imp <- teste [which (abs(teste$low -   teste$high) >= 20),"peixe"]
+  #rem_sp_imp <- teste [which (abs(teste$low.coral -   teste$high.coral) >= 20),"peixe"]
   ## removing these spp
-  rem_sp <-c(as.character(rem_sp_imp),as.character(rem_sp_neg))
-  teste <- teste [which(teste$peixe %in% rem_sp != T),]
+  #rem_sp <-c(as.character(rem_sp_imp),as.character(rem_sp_neg))
+  #teste <- teste [which(teste$peixe %in% rem_sp != T),]
   
-  # plotting
-  dodge <- c(0.2,0.2)
-  pd <- position_dodge(dodge[i])
-  # coefficients
-  a <- ggplot (teste, aes  (y=peixe, x=estimate, fill=coral,
-                            colour=coral)) + 
-    geom_errorbar(aes(xmin=low,xmax=high),width = 0,
-                  position=pd) + theme_classic() + 
-    geom_point()+ 
-    geom_vline(xintercept = 0, linetype="dashed", 
-               color = "gray50", size=0.5)+
-    scale_color_manual(values=c("gray70", "gray60", "gray50",
-                                "gray40","black")) + 
-    xlab("Regression coefficient estimate") + 
-    ylab ("Reef fish species") + 
-    xlim(-20, 20) + 
-    ggtitle (coral_species[[i]]) + 
-    theme (legend.position = "none",
-           axis.title = element_text(size=5),
-           axis.text = element_text(size=5))
+  # listing species with positive response to turf algae
+  rem_sp_turf <- teste [which(teste$estimate.turf > 0 | teste$low.turf > 0),"peixe"] # higher and lower CI lower than 0 
+  rem_sp <-c(as.character(rem_sp_neg),as.character(rem_sp_turf))
   
-  # regression shapes
-  # it can be useful if you don't know how the shape of the relationship between
-  # occupancy and coral cover looks like
-  data_shape <- lapply (c (-8,-2,0,2,8), function (i)
-    
-    data.frame (cc=seq(-2,2,0.1),
-                rel=plogis ( 0 + i * seq(-2,2,0.1)))
-  )
+  # filter spp 
+  teste <- teste [which(teste$peixe %in% unique(rem_sp) != T),]
+  teste$age <-as.factor(teste$age)
   
-  plot_eff <- lapply (data_shape, function (i)
-    
-    ggplot (i, aes (x=cc,y=rel)) + 
-      geom_line(size=2) + theme_classic() + 
-      theme (axis.title = element_blank(),
-             axis.text = element_blank(),
-             axis.ticks = element_blank()) 
-  )
   
-  # save as pdf
-  pdf (file=here("output_comm_wide", paste (i,"longob_neg.pdf",sep="_")),width=4,heigh=3)
-  grid.arrange(
-    plot_eff [[1]],
-    plot_eff [[2]], 
-    plot_eff [[3]],
-    plot_eff [[4]],
-    plot_eff [[5]],
-    a,
-    ncol=9,nrow=7, 
-    layout_matrix = rbind (c(NA,NA,1,2,3,4,5,NA,NA),
-                           c(6,6,6,6,6,6,6,6,6),
-                           c(6,6,6,6,6,6,6,6,6),
-                           c(6,6,6,6,6,6,6,6,6),
-                           c(6,6,6,6,6,6,6,6,6),
-                           c(6,6,6,6,6,6,6,6,6),
-                           c(6,6,6,6,6,6,6,6,6)))
-  
-  grid.text("% of coral cover", 
-            x = unit(0.5, "npc"), 
-            y = unit(.86, "npc"),gp = gpar(fontsize=8))
-  
-  grid.text("Site-occupancy\nprobability",# 
-            x = unit(0.21, "npc"), 
-            y = unit(.94, "npc"),
-            gp = gpar(fontsize=8),
-            rot=90)
-  
-  dev.off() 
-  
+  # the output for further analyses
   list_res <- list (rem_sp = rem_sp,
                     teste = teste)
+  
   
   ;
   
@@ -354,66 +475,190 @@ sp_analyzed <- lapply (seq (1,length(extracted_data)), function (i) { # for each
   
 })
 
+# the test
+sp_analyzed_response <- sapply (sp_analyzed, "[", "teste")
+
+# melt
+sp_analyzed_response <- do.call(rbind,sp_analyzed_response)
+
+
+# ===================================
+# 
+
+# coral associated fish
+sp_analyzed_response<- sp_analyzed_response[which(sp_analyzed_response$low.coral > 0),]
+
+# plotting
+dodge <- c(0.2,0.2)
+pd <- position_dodge(dodge)
+
+# coefficients
+a <- ggplot (sp_analyzed_response, aes  (y=peixe, 
+                          x=estimate.coral, 
+                          fill=age,
+                          colour=age,
+                          group = age)) + 
+  geom_errorbar(aes(xmin=low.coral,
+                    xmax=high.coral),width = 0,
+                position=pd) + 
+  facet_wrap(~coral,nrow=2)+
+  theme_classic() + 
+  geom_point(aes(size = mRdmP),alpha = 0.4)+ 
+  geom_vline(xintercept = 0, linetype="dashed", 
+             color = "gray50", size=0.5)+
+  scale_colour_viridis_d(option = "magma",  begin = 0.5, end=0.8) + 
+  xlab("Regression coefficient estimate") + 
+  ylab ("Reef fish species") + 
+  #xlim(-20, 20) + 
+  #ggtitle (coral_species[[i]]) + 
+  theme (#plot.title = element_text(size=9),
+         legend.position = "right",
+         axis.title = element_text(size=10),
+         axis.text = element_text(size=7))
+
+a
+
+# save as pdf
+pdf (file=here("output_comm_wide_R1",
+               "fish_response.pdf"),
+     width=10,heigh=7)
+
+a # save plot
+
+dev.off() 
+
+
 ## barplot to inset into the coeff plot
-bar_plot_data <-lapply (extracted_data, function (i)
+bar_plot_data_coral <-lapply (extracted_data, function (i)
   
-  data.frame (
+  lapply (unique(extracted_data[[1]]$age), function (age) {
+
+   
+    # filter of age 
+  i <- i [which(i$age == age),]    
+  # dataframe for plot
+  df_bar <- data.frame (
       ## positive effect
-      Positive = ifelse(length(table (i$low >0 ))==1,
+      Positive = ifelse(length(table (i$low.coral >0))==1,
                         0,
-                        (table (i$low >0 ))[2]),
+                        (table (i$low.coral >0))[2]),
                          
       ## no effect
-      No= ifelse(length(table (i$low <0 &  i$high >0))==1,
+      No= ifelse(length(table (i$low.coral <0 &  i$high.coral >0))==1,
                0,
-               (table (i$low <0 &  i$high >0))[2]),
+               (table (i$low.coral <0 &  i$high.coral >0))[2]),
                    
       ## negative effect
-      Negative=ifelse(length(table (i$low <0 & i$high <0))==1,
+      Negative=ifelse(length(table (i$low.coral <0 & i$high.coral <0))==1,
                       0,
-                      (table (i$low <0 & i$high <0))[2]),
+                      (table (i$low.coral <0 & i$high.coral <0))[2]),
       
       # total number of spp
-      nSP = sum(table (i$low >0))
-                       
+      nSP = sum(table (i$low.coral >0)),
+      
+      age = age
+      
       )
+  df_bar
+    }
+))
+
+# turf
+bar_plot_data_turf <-lapply (extracted_data, function (i)
+  
+  lapply (unique(extracted_data[[1]]$age), function (age) {
+    
+    
+    # filter of age 
+    i <- i [which(i$age == age),]    
+    # dataframe for plot
+    df_bar <- data.frame (
+    ## positive effect
+    Positive = ifelse(length(table (i$low.turf >0))==1,
+                      0,
+                      (table (i$low.turf >0))[2]),
+    
+    ## no effect
+    No= ifelse(length(table (i$low.turf <0 &  i$high.turf >0))==1,
+               0,
+               (table (i$low.turf <0 &  i$high.turf >0))[2]),
+    
+    ## negative effect
+    Negative=ifelse(length(table (i$low.turf <0 & i$high.turf <0))==1,
+                    0,
+                    (table (i$low.turf <0 & i$high.turf <0))[2]),
+    
+    # total number of spp
+    nSP = sum(table (i$low.turf >0)),
+    
+    age = age
+    )
+  }
+  )
 )
 
+
+
 # results of percentage of each effect (positive, no/neutral, negative on occupancy probability)
-bar_plot_data
+names (bar_plot_data_coral)<- coral_species
+names (bar_plot_data_turf)<- coral_species
+
+# melt to df
+
+bar_plot_data_turf<- do.call(rbind,lapply (bar_plot_data_turf, function (i) do.call(rbind,i)))
+bar_plot_data_turf<-cbind (bar_plot_data_turf, group = "turf")
+bar_plot_data_coral<-do.call(rbind,lapply (bar_plot_data_coral, function (i) do.call(rbind,i)))
+bar_plot_data_coral<-cbind (bar_plot_data_coral, group = "coral")
+
+# bind 
+bar_plot_data_turf_coral <- rbind (bar_plot_data_coral,
+                                   bar_plot_data_turf)
+
+bar_plot_data_turf_coral$coral <- sapply (strsplit(rownames(bar_plot_data_turf_coral), "\\."), "[[",1)
+
+
+# making proportions of the total number of analyzed fish (both adult and juvenile)
+bar_plot_data_turf_coral$Positive <- bar_plot_data_turf_coral$Positive/bar_plot_data_turf_coral$nSP
+bar_plot_data_turf_coral$No <- bar_plot_data_turf_coral$No/bar_plot_data_turf_coral$nSP
+bar_plot_data_turf_coral$Negative <- bar_plot_data_turf_coral$Negative/bar_plot_data_turf_coral$nSP
+
+# melt into a df
+bar_plot_data_turf_coral <- melt (bar_plot_data_turf_coral,c("group","age", "coral"))
+# rm number of spp
+#bar_plot_data_turf_coral <- bar_plot_data_turf_coral[-which(bar_plot_data_turf_coral$variable == "nSP"),]
+
+
+# plot
+
+barplots<-ggplot(bar_plot_data_turf_coral[-which(bar_plot_data_turf_coral$variable == "nSP"),],
+                              
+                                aes(fill=variable, 
+                                     colour = group,
+                                     y=value, 
+                                     x=coral,
+                                     group=group)) + 
+  geom_bar(position="stack", stat="identity",size=1) + 
+  
+  theme_classic()+
+
+  theme (axis.text.x = element_text(angle=55,  hjust = 1),
+         legend.position = "top",
+         axis.ticks.x = element_blank(),
+         axis.line.x = element_blank()) + 
+  scale_fill_viridis_d(option="magma",begin =0.5,end=1) + 
+  scale_colour_viridis_d(option="magma",
+                         begin =0,end=0.6) +
+  facet_wrap(~age+group)
+  
 
 # save plots
-pdf(here ("output_comm_wide","barplotEffect.pdf"),height=5,width=5)
-par (mfrow=c(2,2))
-# mi al
-barplot(as.numeric(bar_plot_data[[1]])[-4]/as.numeric(bar_plot_data[[1]])[4]*100,
-        names.arg = c("Positive", "No", "Negative"),
-        xlab = "Coral Effect",ylab="Percentage of species",
-        col = c("black","gray80","gray60"),
-        ylim=c(0,100),
-        cex.axis=0.8)
-# mus his
-barplot(as.numeric(bar_plot_data[[2]])[-4]/as.numeric(bar_plot_data[[2]])[4]*100,
-        names.arg = c("Positive", "No", "Negative"),
-        xlab = "Coral Effect",ylab="Percentage of species",
-        col = c("black","gray80","gray60"),
-        ylim=c(0,100),
-        cex.axis=0.8)
-# por astr
-barplot(as.numeric(bar_plot_data[[3]])[-4]/as.numeric(bar_plot_data[[3]])[4]*100,
-        names.arg = c("Positive", "No", "Negative"),
-        xlab = "Coral Effect",ylab="Percentage of species",
-        col = c("black","gray80","gray60"),
-        ylim=c(0,100),
-        cex.axis=0.8)
-# sid spp
-barplot(as.numeric(bar_plot_data[[4]])[-4]/as.numeric(bar_plot_data[[4]])[4]*100,
-        names.arg = c("Positive", "No", "Negative"),
-        xlab = "Coral Effect",ylab="Percentage of species",
-        col = c("black","gray80","gray60"),
-        ylim=c(0,100),
-        cex.axis=0.8)
+pdf(here ("output_comm_wide_R1","barplotEffect.pdf"),height=6,width=5)
+
+barplots
+
 dev.off()
+
+
 
 # ------------------------------------------------------- #
 # functional spaces
@@ -421,760 +666,671 @@ dev.off()
 # of corals would disappear in a future coral-less world
 # ------------------------------------------------------ #
 
+
+
 #---------------------------------------
 # 		LOSS PER CORAL
 # ------------------------------------
 
 # a complete functional space per species of coral
 total <- do.call (rbind,extracted_data) # rbind extracted data (with coefficients and CI)
-# building functional space per coral spp
-f.space <- lapply (unique (total$coral), function(k) { # for each coral species
-  
-  # get fish traits of its community
-  subset1 <- traits_peixes_table [which(traits_peixes_table$Name %in% 
-                                    unique(total$peixe)),
-                            c("Name","Body_size", 
-                              "Size_group",
-                              "Aspect_ratio",
-                              "Trophic_level")]
 
-  # adjust traits (group size as an ordered variable)
-  subset1$Size_group <- sapply(subset1$Size_group , function(x) {
-    if (x=="sol") {1} 
-    else if (x=="pair") {2} 
-    else if (x=="smallg") {3} 
-    else if (x=="medg") {4} 
-    else if (x=="largeg") {5}}
-  )
-  subset1$Size_group <-ordered (subset1$Size_group)
-  rownames(subset1) <- subset1$Name; subset1<- subset1[,-1]
-  # rm missing data
-  subset1 <- subset1[which(is.na(subset1$Aspect_ratio)==F),]
-  
-  # first calculate gower distance on traits
-  gower_matrix <- daisy (subset1, metric=c("gower")) 
-  
-  # Building the functional space based on a PCOA 
-  pco<-dudi.pco(quasieuclid(gower_matrix), scannf=F, nf=10) # quasieuclid() transformation to make the gower matrix as euclidean. nf= number of axis 
-  #barplot(pco$eig) # barplot of eigenvalues for each axis 
-  (Inertia2<-(pco$eig[1]+pco$eig[2]+pco$eig[3]) /(sum(pco$eig))) # percentage of inertia explained by the two first axes
-  
-  # estimate quality of f space
-  quality<-quality_funct_space_fromdist( gower_matrix,  nbdim=10,   
-                                         plot="quality_funct_space_I") # it will produce a plot (hosted in the root folder)
-  
-  ## only the frst axis
-  Inertia.first <- (pco$eig[1]) /(sum(pco$eig))
-  ## only the frst axis
-  Inertia.scnd <- (pco$eig[2]) /(sum(pco$eig))
-  ## only the frst axis
-  Inertia.trd <- (pco$eig[3]) /(sum(pco$eig))
-  
-  ## complete space
-  all <- cbind (pco$li[,1:2],ext = F)
-  a <- all [chull(all[,1:2], y = NULL),] # its convex hull
-  
-  ## extracted data of impaired species of each coral spp
-  subset_coral <- total[which(total$coral == k),] 
-  impaired_sp <- subset_coral [which(subset_coral$low >0),"peixe"]
-   
-  # reduced space
-  setB<-cbind(all, ext1=ifelse(rownames(all) %in% impaired_sp,T,F))
-  pk <-setB[which(setB$ext1==F),]
-  f <- pk [chull(pk, y = NULL),]
-  
-  ## quantifying reduction in functional space
-  # https://chitchatr.wordpress.com/2015/01/23/calculating-the-area-of-a-convex-hull/
-  chull.poly.complete <- Polygon(a[,1:2], hole=F)
-  chull.area.complete <- chull.poly.complete@area
-  
-  ## if it is not possible to calculate reduction in funct space, then report NA
-  if (length(impaired_sp) < 2) {
-    red.space <- data.frame (exc=NA, 
-                             comp=chull.area.complete, 
-                             red=chull.area.complete)
-  }   else { 
-    chull.poly.exc <- Polygon(f[,1:2], hole=F)
-    chull.area.exc <- chull.poly.exc@area
-    ## calculate the diff after excluding coral-associated fish
-    ## how much the complete space is larger than the excluded one
-    red.space <- data.frame (exc=chull.area.exc, 
-                             comp=chull.area.complete, 
-                             red=chull.area.exc/chull.area.complete)
-  }
-  
-  ###########
-  ## plot A (complete space)
-  plotA <- ggplot(a, aes(A1, A2)) + 
-    geom_point() + theme_bw()+
-    geom_polygon(data=a, aes (A1,A2),alpha=0.5,fill="gray") + # complete space
-    geom_polygon(data=f, aes (A1,A2,group=ext1, fill=ext1),alpha=0.5, # reduced space
-                 fill="black",size=3) +
-    xlim(min (a$A1)-0.2,max (a$A1)+0.2)
-  
-  ## correlations to project trait values into the ordination
-  subset1$Size_group <- as.numeric (subset1$Size_group)
-  correlations <- cor (pco$li[is.na(subset1$Aspect_ratio) !=T,1:2],
-                       subset1[is.na(subset1$Aspect_ratio) !=T,])
-  
-  ## plotting 
-  
-  plotA + geom_segment(aes(x = 0, y = 0, 
-                           xend = correlations[1,1]*0.2, 
-                           yend = correlations[2,1]*0.2),size = 1,
-                       arrow = arrow(length = unit(.35, "cm")))  + 
-    ## annotate
-    annotate(geom="text",x=correlations[1,1]*0.25,
-             y=correlations[2,1]*0.25,label="Body size") +
-    
-    geom_segment(aes(x = 0, y = 0, 
-                     xend = correlations[1,2]*0.2, 
-                     yend = correlations[2,2]*0.2),size = 1,
-                 arrow = arrow(length = unit(.35, "cm"))) + 
-    annotate(geom="text",x=correlations[1,2]*0.25,
-             y=correlations[2,2]*0.25,label="Size group") +
-    
-    geom_segment(aes(x = 0, y = 0, 
-                     xend = correlations[1,3]*0.2, 
-                     yend = correlations[2,3]*0.2),size = 1,
-                 arrow = arrow(length = unit(.35, "cm"))) + 
-    annotate(geom="text",x=correlations[1,3]*0.25,
-             y=correlations[2,3]*0.25,label="Aspect ratio") +
-    
-    geom_segment(aes(x = 0, y = 0, 
-                     xend = correlations[1,4]*0.2, 
-                     yend = correlations[2,4]*0.2),size = 1,
-                 arrow = arrow(length = unit(.35, "cm"))) + 
-    annotate(geom="text",x=correlations[1,4]*0.25,
-             y=correlations[2,4]*0.25,label="Trophic level")
-  #save
-  ggsave(here ("output_comm_wide",filename = paste ("Fspace_longo_allcorals",k,".pdf")), 
-         width = 4,height=4) 
-  
-  ## results to report
-  res <- list (space = red.space,
-               quality=quality,
-               first.axis = Inertia.first,
-               scnd.axis = Inertia.scnd,
-               impaired_sp = impaired_sp)
-  ;
-  
-  res
-  
-})
-
-unique(unlist(sapply (f.space, "[[","impaired_sp"))) [order(unique(unlist(sapply (f.space, "[[","impaired_sp"))))]
-
-# variation in space reduction 
-# (exc = space afte exclusion)
-# (comp = complete space)
-# (red = reduction in functional space; in the text we report 1 - red)
-
-sapply (f.space, "[[","space")
-
-# --------------------------------------------
-# 		TOTAL LOSS
-# -------------------------------------------
-
-# global space (binding all fishes and removing all associated)
-total <- do.call (rbind,extracted_data)
-
-# dfish traits
-subset1 <- traits_peixes_table [which(traits_peixes_table$Name %in% 
-                                  unique(total$peixe)),
-                          c("Name","Body_size", 
-                            "Size_group",
-                            "Aspect_ratio",
-                            "Trophic_level")]
-
-# GROUP SIZE AS ORDERED VARIABLE
-subset1$Size_group <- sapply(subset1$Size_group , function(x) {
-  if (x=="sol") {1} 
-  else if (x=="pair") {2} 
-  else if (x=="smallg") {3} 
-  else if (x=="medg") {4} 
-  else if (x=="largeg") {5}}
-)
-subset1$Size_group <-ordered (subset1$Size_group)
-rownames(subset1) <- subset1$Name; subset1<- subset1[,-1]
-subset1 <- subset1[which(is.na(subset1$Aspect_ratio)==F),]
 
 # first calculate gower distance on traits
-gower_matrix <- daisy (subset1, metric=c("gower")) 
+sel_traits <- trait_dataset[which(trait_dataset$scientificName %in% total$peixe),
+                            c("Aspect_ratio","Trophic_level","Size_group",
+                              "TempPref_max","Depth_max",
+                              "log_actual_size",
+                              "scientificName")]
 
+# the correlation between traits
+cor(sel_traits[,-which(colnames(sel_traits) == "scientificName")], 
+    use = "complete.obs")
+#  correlation is fine
+
+
+
+# distance matrix 
+gower_matrix <- daisy (apply (sel_traits[,-which(colnames(sel_traits) == "scientificName")],
+                              2,scale), 
+                       metric=("gower"),
+                       type = list (ordratio = "Size_group")) 
+
+
+# principal coordinate analysis
 # Building the functional space based on a PCOA 
 pco<-dudi.pco(quasieuclid(gower_matrix), scannf=F, nf=10) # quasieuclid() transformation to make the gower matrix as euclidean. nf= number of axis 
+
+
+
 #barplot(pco$eig) # barplot of eigenvalues for each axis 
-(Inertia2<-(pco$eig[1]+pco$eig[2]) /(sum(pco$eig))) # percentage of inertia explained by the two first axes
+(Inertia2<-(pco$eig[1]+pco$eig[2]+pco$eig[3]) /(sum(pco$eig))) # percentage of inertia explained by the two first axes
+
+# estimate quality of f space
+quality<-quality_funct_space_fromdist( gower_matrix,  nbdim=10,   
+                                       plot="quality_funct_space_I") # it will produce a plot (hosted in the root folder)
+
+
+
 ## only the frst axis
-Inertia.first <- (pco$eig[1]) /(sum(pco$eig))
+(Inertia.first <- (pco$eig[1]) /(sum(pco$eig)))
 ## only the frst axis
-Inertia.scnd <- (pco$eig[2]) /(sum(pco$eig))
-
-# complete space
-all <- cbind (pco$li[,1:2],ext = F)
-a <- all [chull(all[,1:2], y = NULL),]# its convex hull
-
-## extracted data of impaired species of each coral spp
-impaired_sp <- unique(total [which(total$low >0),"peixe"])
-
-# reduced space
-setB<-cbind(all, ext1=ifelse(rownames(all) %in% impaired_sp,T,F))
-pk <-setB[which(setB$ext1==F),]
-f <- pk [chull(pk, y = NULL),] # reduced hull area
-
-## quantifying reduction in functional space
-# https://chitchatr.wordpress.com/2015/01/23/calculating-the-area-of-a-convex-hull/
-chull.poly.complete <- Polygon(a[,1:2], hole=F)
-chull.area.complete <- chull.poly.complete@area
-
-## if it is not possible to calculate funct space, then report NA
-if (length(fuck_sp) < 2) {
-  red.space <- data.frame (exc=NA, 
-                           comp=chull.area.complete, 
-                           red=chull.area.complete)
-}   else { 
-  chull.poly.exc <- Polygon(f[,1:2], hole=F)
-  chull.area.exc <- chull.poly.exc@area
-  ## calculate the diff aftering excluding coral-reliant species
-  ## how much the complete space is larger than the excluded one
-  red.space <- data.frame (exc=chull.area.exc, 
-                           comp=chull.area.complete, 
-                           red=chull.area.exc/chull.area.complete)
-}
-
-# plotting
-## plot A (complete)
-plotA <- ggplot(a, aes(A1, A2)) + 
-  geom_point() + theme_bw()+
-  geom_polygon(data=a, aes (A1,A2),alpha=0.5,fill="gray") + # complete space
-  geom_polygon(data=f, aes (A1,A2,group=ext1, fill=ext1),alpha=0.5, # reduced space
-               fill="black",size=3) +
-  xlim(min (a$A1)-0.2,max (a$A1)+0.2)
-
-## correlations to project trait values into the ordination plot
-subset1$Size_group <- as.numeric (subset1$Size_group)
-correlations <- cor (pco$li[is.na(subset1$Aspect_ratio) !=T,1:2],
-                     subset1[is.na(subset1$Aspect_ratio) !=T,])
-
-## plotting 
-
-plotA + geom_segment(aes(x = 0, y = 0, 
-                         xend = correlations[1,1]*0.2, 
-                         yend = correlations[2,1]*0.2),size = 1,
-                     arrow = arrow(length = unit(.35, "cm")))  + 
-  ## annotate
-  annotate(geom="text",x=correlations[1,1]*0.25,
-           y=correlations[2,1]*0.25,label="Body size") +
-  
-  geom_segment(aes(x = 0, y = 0, 
-                   xend = correlations[1,2]*0.2, 
-                   yend = correlations[2,2]*0.2),size = 1,
-               arrow = arrow(length = unit(.35, "cm"))) + 
-  annotate(geom="text",x=correlations[1,2]*0.25,
-           y=correlations[2,2]*0.25,label="Size group") +
-  
-  geom_segment(aes(x = 0, y = 0, 
-                   xend = correlations[1,3]*0.2, 
-                   yend = correlations[2,3]*0.2),size = 1,
-               arrow = arrow(length = unit(.35, "cm"))) + 
-  annotate(geom="text",x=correlations[1,3]*0.25,
-           y=correlations[2,3]*0.25,label="Aspect ratio") +
-  
-  geom_segment(aes(x = 0, y = 0, 
-                   xend = correlations[1,4]*0.2, 
-                   yend = correlations[2,4]*0.2),size = 1,
-               arrow = arrow(length = unit(.35, "cm"))) + 
-  annotate(geom="text",x=correlations[1,4]*0.25,
-           y=correlations[2,4]*0.25,label="Trophic level")
-
-ggsave(here ("output_comm_wide", "Fspace_longo_global.pdf"), 
-       width = 4,height=4) 
-
-## things to report
-res_global <- list (space = red.space,
-             first.axis = Inertia.first,
-             scnd.axis = Inertia.scnd,
-             fuck_sp = fuck_sp)
-
-res_global$space # functional space (remember RTS = 1-red)
-
-#- -----------------------------------------
-# 		RANDOM LOSS SCENARIO
-# ----------------------------------------
-
-# dfish traits
-subset1 <- traits_peixes_table [which(traits_peixes_table$Name %in% 
-                                  unique(total$peixe)),
-                          c("Name","Body_size", 
-                            "Size_group",
-                            "Aspect_ratio",
-                            "Trophic_level")]
-
-# group size as an ordered variable
-subset1$Size_group <- sapply(subset1$Size_group , function(x) {
-  if (x=="sol") {1} 
-  else if (x=="pair") {2} 
-  else if (x=="smallg") {3} 
-  else if (x=="medg") {4} 
-  else if (x=="largeg") {5}}
-)
-subset1$Size_group <-ordered (subset1$Size_group)
-rownames(subset1) <- subset1$Name; subset1<- subset1[,-1]
-subset1 <- subset1[which(is.na(subset1$Aspect_ratio)==F),]
-
-# first calculate gower distance on traits
-gower_matrix <- daisy (subset1, metric=c("gower")) 
-
-# Building the functional space based on a PCOA 
-pco<-dudi.pco(quasieuclid(gower_matrix), scannf=F, nf=10) # quasieuclid() transformation to make the gower matrix as euclidean. nf= number of axis 
-#barplot(pco$eig) # barplot of eigenvalues for each axis 
-(Inertia2<-(pco$eig[1]+pco$eig[2]) /(sum(pco$eig))) # percentage of inertia explained by the two first axes
+(Inertia.scnd <- (pco$eig[2]) /(sum(pco$eig)))
 ## only the frst axis
-Inertia.first <- (pco$eig[1]) /(sum(pco$eig))
-## only the frst axis
-Inertia.scnd <- (pco$eig[2]) /(sum(pco$eig))
+(Inertia.trd <- (pco$eig[3]) /(sum(pco$eig)))
 
 ## complete space
-all <- cbind (pco$li[,1:2],ext = F)
-a <- all [chull(all[,1:2], y = NULL),] # its hull
+all <- cbind (pco$li[,1:2],
+              ext = F,
+              sp = sel_traits$scientificName)
+a <- all [chull(all[,1:2], y = NULL),] # its convex hull
+
+
+# coral associated
+c_assoc <-cbind(all, ext1=ifelse(all$sp %in% 
+                                   unique(sp_analyzed_response$peixe),T,F))
+c_assoc <-c_assoc[which(c_assoc$ext1==T),]
+c_assoc_set <- c_assoc [chull(c_assoc, y = NULL),]
+
+# age
+
+RTS_age <- lapply (unique(total$age), function (age){
+
+      # coral-associated fish
+      coral_associated <- total[which(total$age == age &
+                                      total$low.coral > 0 & 
+                                      total$high.turf < 0),] 
+      
+      
+      # reduced space
+      setB<-cbind(all, ext1=ifelse(all$sp %in% 
+                                    unique(coral_associated$peixe),T,F))
+      pk <-setB[which(setB$ext1==F),]
+      f <- pk [chull(pk, y = NULL),]
+      
+      # turf-associated fish
+      turf_associated <- total[which(total$age == age &
+                                       total$low.turf > 0&
+                                     total$high.coral < 0  
+                                     ),] 
+      
+      # reduced space
+      setT<-cbind(all, ext1=ifelse(all$sp %in% 
+                                     unique(turf_associated$peixe),T,F))
+      pkT <-setT[which(setT$ext1==F),]
+      turf <- pkT [chull(pkT, y = NULL),]
+      
+      
+      # quantifying reduction in functional space
+      # https://chitchatr.wordpress.com/2015/01/23/calculating-the-area-of-a-convex-hull/
+      chull.poly.complete <- Polygon(a[,1:2], hole=F)
+      chull.area.complete <- chull.poly.complete@area
+      
+      
+      
+      # coral
+      chull.poly.coral <- Polygon(f[,1:2], hole=F)
+      chull.area.coral <- chull.poly.coral@area
+      
+      
+      
+      # turf
+      chull.poly.turf <- Polygon(turf[,1:2], hole=F)
+      chull.area.turf <- chull.poly.turf@area
+      
+      
+      
+      # calculating reductions across all corals
+      
+      RTS<-data.frame (corals=(1-(chull.area.coral/chull.area.complete))*100,
+                  turf=(1-(chull.area.turf/chull.area.complete))*100)
+      # resuts to report
+      res <- list (RTS = RTS,
+                   coral.associated =  coral_associated$peixe[order(coral_associated$peixe)],
+                   turf_associated = turf_associated$peixe[order(turf_associated$peixe)],
+                   space.coral = f,
+                   space.turf = turf)
+      ;
+      res
+})
+
+#  results
+names (RTS_age) <- c("adult", "juvenile")
+
+# the loss per coral
+RTS_per_coral <-lapply (unique(total$coral), function (coral) 
+  
+                  lapply (unique(total$age), function (age)   {
+    
+    # coral-associated fish
+    coral_associated <- total[which(total$low.coral > 0 & 
+                                      total$high.turf < 0 & 
+                                      total$age == age & 
+                                      total$coral == coral),] 
+    
+    
+    # reduced space
+    setB<-cbind(all, ext1=ifelse(all$sp %in% 
+                                   unique(coral_associated$peixe),T,F))
+    pk <-setB[which(setB$ext1==F),]
+    f <- pk [chull(pk, y = NULL),]
+    
+    # turf-associated fish
+    turf_associated <- total[which(total$high.coral < 0 & 
+                                     total$low.turf > 0 & 
+                                     total$age == age & 
+                                     total$coral == coral),] 
+    
+    # reduced space
+    setT<-cbind(all, ext1=ifelse(all$sp %in% 
+                                   unique(turf_associated$peixe),T,F))
+    pkT <-setT[which(setT$ext1==F),]
+    turf <- pkT [chull(pkT, y = NULL),]
+    
+    
+    
+    # quantifying reduction in functional space
+    # https://chitchatr.wordpress.com/2015/01/23/calculating-the-area-of-a-convex-hull/
+    chull.poly.complete <- Polygon(a[,1:2], hole=F)
+    chull.area.complete <- chull.poly.complete@area
+    
+    
+    
+    # coral
+    chull.poly.coral <- Polygon(f[,1:2], hole=F)
+    chull.area.coral <- chull.poly.coral@area
+    
+    
+    
+    # turf
+    chull.poly.turf <- Polygon(turf[,1:2], hole=F)
+    chull.area.turf <- chull.poly.turf@area
+    
+    
+    
+    
+    # calculating reductions across all corals
+    
+    RTS<-data.frame (corals=(1-(chull.area.coral/chull.area.complete))*100,
+                     turf=(1-(chull.area.turf/chull.area.complete))*100)
+    
+    # results
+    res <- list (RTS = RTS,
+                 coral.associated =  coral_associated$peixe[order(coral_associated$peixe)],
+                 turf_associated = turf_associated$peixe[order(turf_associated$peixe)],
+                 space.coral = f,
+                 space.turf = turf)
+    ; # return
+    res
+
+    }
+    )# close age
+    ) # close corals
+
+names (RTS_per_coral) <- coral_species
+
+
+# =======================================================
+# simulations of total random loss
 
 ## extracted data of impaired species of each coral spp
 impaired_sp <- replicate (100,sample (total$peixe,# 100 samples 
-  length(unique(total [which(total$low >0),"peixe"]))))# of size equal N associated fish
+                                      length(unique(total [which(total$low.coral >0 & 
+                                                                   total$high.turf < 0),"peixe"]))))# of size equal N associated fish
 
 # run random sampling
 extinction_random <- lapply(seq (1,ncol(impaired_sp)), function (i) {
   
   # reduced space
-  setB<-cbind(all, ext1=ifelse(rownames(all) %in% impaired_sp[,i],T,F))
-  pk <-setB[which(setB$ext1==F),]
-  f <- pk [chull(pk, y = NULL),]
-
+  setB.rdm<-cbind(all, ext1=ifelse(all$sp %in% impaired_sp[,i],T,F))
+  pk.rdm <-setB.rdm[which(setB.rdm$ext1==F),]
+  f.rdm <- pk.rdm [chull(pk.rdm, y = NULL),]
+  f.rdm<- cbind(f.rdm,dt=i)
   ## quantifying reduction in functional space
-
+  
   # https://chitchatr.wordpress.com/2015/01/23/calculating-the-area-of-a-convex-hull/
   chull.poly.complete <- Polygon(a[,1:2], hole=F)
   chull.area.complete <- chull.poly.complete@area
-
-  ## if it is not possible to calculate funct space, then report NA
-  if (length(fuck_sp) < 2) {
-    red.space <- data.frame (exc=NA, 
-                           comp=chull.area.complete, 
-                           red=chull.area.complete)
-  }   else { 
-    chull.poly.exc <- Polygon(f[,1:2], hole=F)
-    chull.area.exc <- chull.poly.exc@area
-    ## calculate the diff aftering excluding coral-reliant species
-    ## how much the complete space is larger than the excluded one
-    red.space <- data.frame (exc=chull.area.exc, 
-                           comp=chull.area.complete, 
-                           red=chull.area.exc/chull.area.complete)
-    ; # return
-    res <- list (red.space = red.space,
-                 coord_space = f)
-  }
+  
+  
+  # random area
+  chull.poly.random <- Polygon(f.rdm[,1:2], hole=F)
+  chull.area.random <- chull.poly.random@area
+  
+  # calculating reductions across all corals
+  RTS<-data.frame (value =(1-(chull.area.random/chull.area.complete))*100)
+  RTS <- list (RTS=RTS,
+               space = f.rdm)
+  ; # return
+  RTS
 })
   
-# extract interesting result
-random_ext_pol <- sapply (extinction_random, "[","coord_space")
 
-## plot A
+
+# simulations of  random loss per coral
+
+## extracted data of impaired species of each coral spp
+impaired_sp_per_coral <- lapply (unique(total$coral), function (coral) { 
+  
+  
+        (replicate (100,# 100 samples 
+                   sample (total$peixe[total$coral == coral], # maintain composition
+                                length(unique(total [which(total$low.coral >0 & 
+                                                    total$high.turf < 0 &
+                                                    total$coral == coral),
+                                              "peixe"]))
+                           )
+                   ))
+  
+  }
+                                 
+)# of size equal N associated fish
+
+# adjusting this case of only one species
+impaired_sp_per_coral[[6]]<-matrix(impaired_sp_per_coral[[6]],nrow=1)
+
+# run random sampling
+extinction_random_per_coral <- lapply(impaired_sp_per_coral, function (coral)
+  
+          lapply (seq (1,ncol(coral)), function (i) {
+  
+        # reduced space
+        setB.rdm<-cbind(all, ext1=ifelse(all$sp %in% coral[,i],T,F))
+        pk.rdm <-setB.rdm[which(setB.rdm$ext1==F),]
+        f.rdm <- pk.rdm [chull(pk.rdm, y = NULL),]
+        f.rdm<- cbind(f.rdm,dt=i)
+        ## quantifying reduction in functional space
+        
+        # https://chitchatr.wordpress.com/2015/01/23/calculating-the-area-of-a-convex-hull/
+        chull.poly.complete <- Polygon(a[,1:2], hole=F)
+        chull.area.complete <- chull.poly.complete@area
+        
+        
+        # random area
+        chull.poly.random <- Polygon(f.rdm[,1:2], hole=F)
+        chull.area.random <- chull.poly.random@area
+        
+        # calculating reductions across all corals
+        RTS<-data.frame (value =(1-(chull.area.random/chull.area.complete))*100)
+        RTS <- list (RTS=RTS,
+                     space = f.rdm)
+        ; # return
+        RTS
+}))
+
+# ===================================================
+
+# violin plot showing deviations from random
+
+# total loss
+loss_total <- lapply  (RTS_age, function (i) i$RTS)
+loss_total<- do.call (rbind, loss_total)
+loss_total<-cbind (loss_total,scenario = "Total loss")
+loss_total$age <- rownames(loss_total)
+loss_total$coral <- "all"
+loss_total <- melt (loss_total)
+
+# loss per coral
+loss_per_coral <- lapply (RTS_per_coral, function (i) 
+  
+      do.call(rbind ,
+              lapply (i, function (k) k$RTS)
+      )
+      
+      )
+
+
+loss_per_coral <- lapply (loss_per_coral, function (i){
+  
+  rownames(i) <- c("adult", "juvenile")
+  
+  i
+  })
+
+
+# melt
+loss_per_coral <- do.call(rbind.data.frame, loss_per_coral)
+loss_per_coral<-cbind (loss_per_coral, scenario = "Loss per coral")
+loss_per_coral$age <- rownames(loss_per_coral)
+loss_per_coral$age <- sapply (strsplit(loss_per_coral$age, "\\."), "[[",2)
+loss_per_coral$coral <- sapply (strsplit(rownames(loss_per_coral), "\\."), "[[",1)
+loss_per_coral <- melt (loss_per_coral)
+
+
+# random trait space
+RTS_random <- do.call(rbind, sapply (extinction_random, "[","RTS"))
+RTS_random <- data.frame (RTS_random, 
+                          scenario="random",
+                          age = NA, 
+                          coral = NA,
+                          variable = "random")
+RTS_random <- RTS_random[,match (colnames(loss_per_coral),colnames(RTS_random))]
+
+# impaired spp per coral
+RTS_random_per_coral <- lapply (extinction_random_per_coral, function (coral)
+  
+  do.call(rbind,lapply (coral, function (sim) 
+    
+    sim$RTS
+  ))
+)
+
+# melt
+RTS_random_per_coral<- do.call(cbind,RTS_random_per_coral)
+colnames (RTS_random_per_coral) <- coral_species
+
+# long format
+RTS_random_per_coral<-melt (RTS_random_per_coral)
+RTS_random_per_coral <- data.frame (coral = RTS_random_per_coral$variable,
+                                    value = RTS_random_per_coral$value,
+                                    scenario="random_per_coral",
+                                    age = NA, 
+                                    variable = "random")
+RTS_random_per_coral <- RTS_random_per_coral[,match (colnames(loss_per_coral),colnames(RTS_random_per_coral))]
+
+# bind all these data for violin plots
+data_violin <- rbind (loss_total,
+                      loss_per_coral,
+                      RTS_random, 
+                      RTS_random_per_coral)
+
+
+# group for comparison
+data_violin$comparison <- ifelse (data_violin$scenario %in% c("random","Total loss"),
+                                   "random",
+                                   "random_per_coral")
+
+# adjust size
+# number is the point size
+data_violin$age<- (ifelse (data_violin$age == "adult",2,1))
+
+# plot
+require(ggplot2)
+
+violin1 <- ggplot(data_violin[which(data_violin$scenario == "random"),],  # subset (null dataset)
+       aes (x = comparison, 
+            y = value,
+            fill=scenario)) +
+  
+  # facets
+  #facet_wrap(~Trait,ncol=3,scales = "free_y") +
+  
+  # violin plot for the null dataset
+  geom_violin(size=1,
+              col = "gray80",
+              fill = "gray",
+              alpha = 0.1) +
+  
+  # boxplot for the observed dataset
+  geom_jitter(data = data_violin[which(data_violin$scenario == "Total loss"),],  # subset (observed dataset)
+               aes (x = comparison, 
+                    y = value,
+                    fill= variable,
+                    size=as.factor(age),
+                    colour= variable),
+              width = 0.12, height = 0,
+               alpha=0.8) +
+  scale_colour_viridis_d (option="viridis", begin = 0.1,end=0.5)+
+  stat_summary(fun = "mean",
+               geom = "point",
+               color = "gray50",
+               size=4)+
+  
+  #stat_summary(fun=mean,
+  #             geom="point",
+  #             shape=19, size=3) + 
+  theme_classic() + xlab ("") + 
+  ylab (expression("Reduction in Trait Space (RTS, %)")) +
+  theme (axis.title = element_text(size=15),
+         axis.text.x = element_blank(),
+         legend.position = c(0.8,0.7)) + 
+  ggtitle ("Total loss vs. random loss")
+
+violin1
+
+
+# violin 2, loss per coral
+
+# plot
+head(data_violin)
+
+violin2 <- ggplot(data_violin[which(data_violin$scenario == "random_per_coral"),],  # subset (null dataset)
+                  aes (x = comparison, 
+                       y = value,
+                       fill=scenario)) +
+  
+  # facets
+  facet_wrap(~coral,ncol=4,scales = "fixed") +
+  
+  # violin plot for the null dataset
+  geom_violin(size=1,
+              col = "gray80",
+              fill = "gray",
+              alpha = 0.1) +
+  
+  # boxplot for the observed dataset
+  geom_jitter(data = data_violin[which(data_violin$scenario == "Loss per coral"),],  # subset (observed dataset)
+              aes (x = comparison, 
+                   y = value,
+                   fill= variable,
+                   size=age,
+                   colour= variable),
+              width = 0.12, height = 0,
+              alpha=0.8) +
+  scale_colour_viridis_d (option="viridis", begin = 0,end=0.7)+
+  stat_summary(fun = "mean",
+               geom = "point",
+               color = "gray50",
+               size=4)+
+
+  #stat_summary(fun=mean,
+  #             geom="point",
+  #             shape=19, size=3) + 
+  theme_classic() + xlab ("") + 
+  ylab ("") +
+  theme (axis.title = element_text(size=15),
+         axis.text.x = element_blank(),
+         legend.position = "none") + 
+  ggtitle ("Loss per coral vs. random loss per coral")
+
+
+violin2
+
+pdf(here ("output_comm_wide_R1", "RTS.pdf"),height=5,width=9)
+grid.arrange(violin1,
+             violin2,ncol=6,nrow=1,
+             layout_matrix = rbind (c(1,1,2,2,2,2)))
+
+dev.off()
+
+
+
+
+# ========================================================
+# trait spaces
+
+# plots
+
+## plot A (complete space)
 plotA <- ggplot(a, aes(A1, A2)) + 
-    geom_point() + theme_bw()+
-    geom_polygon(data=a, aes (A1,A2),alpha=0.7,fill="gray10") + # complete
-	# and then each randomly reduced space
-    geom_polygon(data=random_ext_pol[[1]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[1]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[2]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[3]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[4]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[5]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[6]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[7]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[8]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[9]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[10]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[11]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[12]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[13]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[14]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[15]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[16]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[17]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[18]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[19]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[20]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[21]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[22]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[23]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[24]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[25]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[26]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[27]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[28]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[29]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[30]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[31]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[32]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[33]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[34]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[35]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[36]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[37]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[38]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[39]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[40]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[41]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[42]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[43]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[44]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[45]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[46]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[46]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[47]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[48]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[49]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[50]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[51]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[52]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[53]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[54]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[55]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[56]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[57]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[58]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[59]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[60]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[61]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[62]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[63]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[64]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[65]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[66]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[66]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[67]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[68]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[69]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[70]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[71]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[72]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[73]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[74]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[75]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[76]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[76]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[77]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[78]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[79]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[80]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[81]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[82]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[83]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[84]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[85]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[86]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[87]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[88]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[89]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[90]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[91]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[92]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[93]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[94]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[95]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[96]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[97]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[98]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[99]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-  geom_polygon(data=random_ext_pol[[100]], aes (A1,A2,group=ext1, fill=ext1),alpha=0.02,
-               fill="white",size=3) +
-    xlim(min (a$A1)-0.2,max (a$A1)+0.2)
+  geom_point(size=2) + theme_bw()+
+  geom_polygon(data=a, aes (A1,A2),
+               alpha=0.3,
+               fill="gray",
+               colour = "black",
+               size=1,
+               linetype = 2) + # complete space
+  geom_polygon(data=c_assoc_set, aes (A1,A2),
+               alpha=0.3,
+               fill="yellow",
+               colour = "yellow",
+               size=1,
+               linetype = 3) +
+  geom_polygon(data=RTS_age$juvenile$space.coral, aes (A1,A2,group=ext1, fill=ext1),
+               alpha=0.3, # reduced space
+               fill="#990000",
+               size=3) +
+  geom_polygon(data=RTS_age$adult$space.coral, 
+               aes (A1,A2,group=ext1, fill=ext1),
+               alpha=0.5, # reduced space
+               fill="#F47C7C",size=3) + 
+  geom_text_repel(data = a, aes (x=A1, y=A2, label=sp),
+                  size=3)+
+  
+  ggtitle ("Total loss") + 
+  xlab(paste ("Axis I:", round(Inertia.first*100,2),"%"))+
+  ylab(paste ("Axis II:", round(Inertia.scnd*100,2),"%"))+
+  theme (plot.title = element_text(size=12))
+
 
 plotA
 
-## correlations to project trait values into the ordination plot
-subset1$Size_group <- as.numeric (subset1$Size_group)
-correlations <- cor (pco$li[is.na(subset1$Aspect_ratio) !=T,1:2],
-                     subset1[is.na(subset1$Aspect_ratio) !=T,])
+## space per coral
+# organize the df
+# coral
+df_space_per_coral <- lapply (RTS_per_coral,function (coral) 
+  do.call(rbind , sapply (coral, "[", "space.coral"))
+)
+df_space_per_coral<-do.call(rbind, df_space_per_coral)#melt
+df_space_per_coral$coral <- sapply (strsplit (rownames(df_space_per_coral), "\\."),"[[",1)
+# turf
+df_space_per_coral_turf <- lapply (RTS_per_coral,function (coral) 
+  do.call(rbind , sapply (coral, "[", "space.turf"))
+)
+df_space_per_coral_turf<-do.call(rbind, df_space_per_coral_turf)#melt
+df_space_per_coral_turf$coral <- sapply (strsplit (rownames(df_space_per_coral_turf), "\\."),"[[",1)
 
-## plotting 
+# plot per coral spp
 
-plotA + geom_segment(aes(x = 0, y = 0, 
-                         xend = correlations[1,1]*0.2, 
-                         yend = correlations[2,1]*0.2),size = 1,
-                     arrow = arrow(length = unit(.35, "cm")))  + 
-  ## annotate
-  annotate(geom="text",x=correlations[1,1]*0.25,
-           y=correlations[2,1]*0.25,label="Body size") +
+plotB <- lapply (seq (1,length(RTS_per_coral)), function (coral) { 
+
   
-  geom_segment(aes(x = 0, y = 0, 
-                   xend = correlations[1,2]*0.2, 
-                   yend = correlations[2,2]*0.2),size = 1,
-               arrow = arrow(length = unit(.35, "cm"))) + 
-  annotate(geom="text",x=correlations[1,2]*0.25,
-           y=correlations[2,2]*0.25,label="Size group") +
-  
-  geom_segment(aes(x = 0, y = 0, 
-                   xend = correlations[1,3]*0.2, 
-                   yend = correlations[2,3]*0.2),size = 1,
-               arrow = arrow(length = unit(.35, "cm"))) + 
-  annotate(geom="text",x=correlations[1,3]*0.25,
-           y=correlations[2,3]*0.25,label="Aspect ratio") +
-  
-  geom_segment(aes(x = 0, y = 0, 
-                   xend = correlations[1,4]*0.2, 
-                   yend = correlations[2,4]*0.2),size = 1,
-               arrow = arrow(length = unit(.35, "cm"))) + 
-  annotate(geom="text",x=correlations[1,4]*0.25,
-           y=correlations[2,4]*0.25,label="Trophic level")
+  ggplot(a, aes(A1, A2)) + 
+  geom_point(size=2) + theme_bw()+
+  geom_polygon(data=a, aes (A1,A2),
+               alpha=0.3,
+               fill="gray",
+               colour = "black",
+               size=1,
+               linetype = 2) + # complete space
+  geom_polygon(data=RTS_per_coral[[coral]][[1]]$space.coral, 
+               aes (A1,A2,group=ext1, fill=ext1),
+               alpha=0.3, # reduced space
+               fill="#990000",
+               size=3) +
+  geom_polygon(data=RTS_per_coral[[coral]][[2]]$space.coral, 
+               aes (A1,A2,group=ext1, fill=ext1),
+               alpha=0.3, # reduced space
+               fill="#F47C7C",size=3,
+               linetype = 4) + 
+  ggtitle (coral_species[coral])+
+    theme (plot.title = element_text(size=12),
+           axis.title = element_blank(),
+           axis.text = element_blank())
 
-ggsave(here ("output_comm_wide", "Fspace_longo_random.pdf"), 
-       width = 4,height=4) 
-
-## things to report
-res_random <- list (space = sapply (extinction_random,"[","red.space"),
-             first.axis = Inertia.first,
-             scnd.axis = Inertia.scnd,
-             fuck_sp = fuck_sp)
-
-apply(do.call(rbind,sapply (extinction_random,"[","red.space")),2,mean)
-apply(do.call(rbind,sapply (extinction_random,"[","red.space")),2,sd)
-
-# ---------------------------------------------------------------- #
-# check the amount of functional space occupied by the 47 spp
-# supporting information
-
-# dfish traits
-subset1 <- traits_peixes [which(gsub(" ",".",tolower (traits_peixes$Name)) %in% 
-                                  todas_sp_longo),
-                          c("Name","Body_size", 
-                            "Size_group",
-                            "Aspect_ratio",
-                            "Trophic_level")]
-
-subset1$Size_group <- sapply(subset1$Size_group , function(x) {
-  if (x=="sol") {1} 
-  else if (x=="pair") {2} 
-  else if (x=="smallg") {3} 
-  else if (x=="medg") {4} 
-  else if (x=="largeg") {5}}
+  }
 )
 
-subset1$Size_group <-ordered (subset1$Size_group)
-rownames(subset1) <- subset1$Name; subset1<- subset1[,-1]
-subset1 <- subset1[which(is.na(subset1$Aspect_ratio)==F),]
 
-# first calculate gower distance on traits
-gower_matrix <- daisy (subset1, metric=c("gower")) 
+## correlations to project trait values into the ordination
+correlations <- cor (data.frame(sel_traits[,-which(colnames(sel_traits) == "scientificName")],
+                                pco$li[,1:3]),
+                     use = "complete.obs")
+correlations<-correlations [,c("A1","A2")]# interesting correlations
 
-# Building the functional space based on a PCOA 
-pco<-dudi.pco(quasieuclid(gower_matrix), scannf=F, nf=10) # quasieuclid() transformation to make the gower matrix as euclidean. nf= number of axis 
-#barplot(pco$eig) # barplot of eigenvalues for each axis 
-(Inertia2<-(pco$eig[1]+pco$eig[2]) /(sum(pco$eig))) # percentage of inertia explained by the two first axes
-## only the frst axis
-Inertia.first <- (pco$eig[1]) /(sum(pco$eig))
-## only the frst axis
-Inertia.scnd <- (pco$eig[2]) /(sum(pco$eig))
 
-## complete space
-all <- cbind (pco$li[,1:2],ext = F)
-a <- all [chull(all[,1:2], y = NULL),]
-#a [order(a$A1,decreasing=T),]
+# plot of the random trait space
+random_space <- do.call(rbind, sapply (extinction_random, "[","space"))
 
-# space of analyzed spp
-setB<-cbind(all, ext1=ifelse(gsub(" ",".",tolower (rownames(all))) %in% sp_longo,F,T))
-pk <-setB[which(setB$ext1==F),]
-f <- pk [chull(pk, y = NULL),]
+plotC <- ggplot(random_space, aes(A1, A2,
+                          group=dt),
+                          fill="#D3EBCD",
+                          colour = "#AEDBCE",
+                          size=1) + 
+  theme_bw()+
+  geom_polygon(alpha=0.01)  # complete space
+  
 
-## space of associated / influenced by corals 
-fuck_sp <- unique(total [which(total$low >0),"peixe"])
-fuck_sp<-tolower(gsub (" ",".",fuck_sp,))
-
-setc<-cbind(all, ext1=ifelse(gsub(" ",".",tolower (rownames(all))) %in% fuck_sp,F,T))
-pkB <-setc[which(setc$ext1==F),]
-dep <- pkB [chull(pkB, y = NULL),]
-
-## quantifying reduction in functional space
-
-# https://chitchatr.wordpress.com/2015/01/23/calculating-the-area-of-a-convex-hull/
-# the complete trait space
-chull.poly.complete <- Polygon(a[,1:2], hole=F)
-(chull.area.complete <- chull.poly.complete@area)
-# space of spp detected in videoplots
-chull.poly.complete <- Polygon(f[,1:2], hole=F)
-(chull.area.videop <- chull.poly.complete@area)
-# space of coral-associated fish
-chull.poly.complete <- Polygon(dep[,1:2], hole=F)
-(chull.area.videop.reliant <- chull.poly.complete@area)
-
-## plot A
-plotA <- ggplot(a, aes(A1, A2)) + 
-  geom_point() + theme_bw()+
-  geom_polygon(data=a, aes (A1,A2),alpha=0.5,fill="gray") + 
-  geom_polygon(data=f, aes (A1,A2,group=ext1, fill=ext1),alpha=0.5,
-               fill="black",size=3) +
-  geom_polygon(data=dep, aes (A1,A2,group=ext1, fill=ext1),alpha=0.5,
-               fill="orange",size=3) +
-  xlim(min (a$A1)-0.2,max (a$A1)+0.2) + 
-  xlab (paste ("A1 (", round(Inertia.first*100,2),"%)",sep=""))+
-  ylab (paste ("A2 (", round(Inertia.scnd*100,2),"%)",sep=""))
-
-## correlations
-subset1$Size_group <- as.numeric (subset1$Size_group)
-correlations <- cor (pco$li[is.na(subset1$Aspect_ratio) !=T,1:2],
-                     subset1[is.na(subset1$Aspect_ratio) !=T,])
-
-## plotting 
-
-plotA + geom_segment(aes(x = 0, y = 0, 
-                         xend = correlations[1,1]*0.2, 
-                         yend = correlations[2,1]*0.2),size = 1,
-                     arrow = arrow(length = unit(.35, "cm")))  + 
+plotC <- plotC+ geom_segment(aes(x = 0, y = 0, 
+                   xend = correlations[1,1]*0.2, 
+                   yend = correlations[1,2]*0.2),size = 1,
+                   color="black",
+               arrow = arrow(length = unit(.35, "cm")))  + 
   ## annotate
   annotate(geom="text",x=correlations[1,1]*0.25,
-           y=correlations[2,1]*0.25,label="Body size") +
+           y=correlations[1,2]*0.24,label="Aspect ratio",
+           color="black") +
   
   geom_segment(aes(x = 0, y = 0, 
-                   xend = correlations[1,2]*0.2, 
+                   xend = correlations[2,1]*0.2, 
                    yend = correlations[2,2]*0.2),size = 1,
+               color="black",
                arrow = arrow(length = unit(.35, "cm"))) + 
-  annotate(geom="text",x=correlations[1,2]*0.25,
-           y=correlations[2,2]*0.25,label="Size group") +
+  annotate(geom="text",x=correlations[2,1]*0.25,
+           y=correlations[2,2]*0.25,label="Trophic level",
+           color="black") +
   
   geom_segment(aes(x = 0, y = 0, 
-                   xend = correlations[1,3]*0.2, 
-                   yend = correlations[2,3]*0.2),size = 1,
+                   xend = correlations[3,1]*0.2, 
+                   yend = correlations[3,2]*0.2),size = 1,
+               color="black",
                arrow = arrow(length = unit(.35, "cm"))) + 
-  annotate(geom="text",x=correlations[1,3]*0.25,
-           y=correlations[2,3]*0.25,label="Aspect ratio") +
+  annotate(geom="text",x=correlations[3,1]*0.20,
+           y=correlations[3,2]*0.25,label="Group size",
+           color="black") +
   
   geom_segment(aes(x = 0, y = 0, 
-                   xend = correlations[1,4]*0.2, 
-                   yend = correlations[2,4]*0.2),size = 1,
+                   xend = correlations[4,1]*0.2, 
+                   yend = correlations[4,2]*0.2),size = 1,
+               color="black",
                arrow = arrow(length = unit(.35, "cm"))) + 
-  annotate(geom="text",x=correlations[1,4]*0.25,
-           y=correlations[2,4]*0.25,label="Trophic level") + 
+  annotate(geom="text",x=correlations[4,1]*0.25,
+           y=correlations[4,2]*0.29,label="TºC max",
+           color="black") + 
   
-  # ANOTATE FUNCTIONAL SPACE SIZE
-  annotate(geom="text",x=-0.12,xmin=-0.12,
-           y=-0.15,ymin=-0.15,colour="white",
-           label=paste(round(chull.area.videop/chull.area.complete,2)*100,
-                       "%")) + 
-  # ANOTATE FUNCTIONAL SPACE SIZE
-  annotate(geom="text",x=-0.05,xmin=-0.05,
-           y=-0.1,ymin=-0.1,colour="white",
-           label=paste(round(chull.area.videop.reliant/chull.area.complete,2)*100,
-                       "%"))
+  geom_segment(aes(x = 0, y = 0, 
+                   xend = correlations[5,1]*0.2, 
+                   yend = correlations[5,2]*0.2),size = 1,
+               color="black",
+               arrow = arrow(length = unit(.35, "cm"))) + 
+  annotate(geom="text",x=correlations[5,1]*0.25,
+           y=correlations[5,2]*0.23,label="Depth max",
+           color="black",) + 
+  
+  geom_segment(aes(x = 0, y = 0, 
+                   xend = correlations[6,1]*0.2, 
+                   yend = correlations[6,2]*0.2),size = 1,
+               color="black",
+               arrow = arrow(length = unit(.35, "cm"))) + 
+  annotate(geom="text",x=correlations[6,1]*0.18,
+           y=correlations[6,2]*0.25,label="Body size",
+           color="black") + 
+  ggtitle ("Random loss") +
+  theme (plot.title = element_text(size=12),
+         axis.title = element_blank(),
+         axis.text = element_blank())
 
+# save to pdf
+png (here ("output_comm_wide_R1", "trait_spaces.png"),
+     width = 40, height = 12, units = "cm",res=300)
 
-# save plot
-ggsave(here ("output","Vect",filename = paste ("Fspace_longo_all_fish.pdf")), 
-       width = 4,height=4) 
+# organize the trait spaces
+grid.arrange (plotA,
+              plotB[[1]],
+              plotB[[2]],
+              plotB[[3]],
+              plotB[[4]],
+              plotB[[5]],
+              plotB[[6]],
+              plotB[[7]],
+              plotB[[8]],
+              plotC,ncol = 8,nrow=2,
+              
+              layout_matrix = rbind (c(1,1,2,3,4,5,10,10),
+                                     c(1,1,6,7,8,9,10,10))
+              )
 
+dev.off()
 
 
 # end
