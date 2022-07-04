@@ -1,0 +1,204 @@
+
+    
+      model {
+              
+       
+       # ===================================================================
+       
+       # Priors
+        
+        # Priors for detection probability
+        
+        ### depth effect
+        for (k in 1:nspec) {
+           for (i in 1:2){ # Implicitly define alpha of depth as a vector
+             alpha.depth[k,i] ~ dunif(0,1)
+             intercept.depth[k,i] <- logit (alpha.depth[k,i])
+           }
+        }
+         
+         
+        ### random effect of video
+        for (k in 1:nspec){
+           alpha0[k] ~ dunif (0,1)
+           lalpha0[k] <- logit (alpha0[k])
+           sd.p[k] ~ dunif (0,10) ## sd of p on logit scale
+           tau.p[k] <- pow (sd.p[k],2)## p precision on logit scale
+        }
+        
+        ### one estimate per transect
+        for (k in 1:nspec) {
+           for (j in 1:nocca){
+             logit (intercept.p [k,j]) <- lp [k,j]
+             lp[k,j] ~ dnorm (lalpha0[k],tau.p[k])
+           }
+        }
+      
+      
+        # Site - occupancy priors
+        ### the intercept
+        for (k in 1:nspec) {
+              beta0 [k] ~ dunif (0,1)
+              intercept.psi [k] <- logit(beta0[k])
+         }
+      
+        ### regression coefficient depicting the influence of coral cover
+        for (k in 1:nspec) {
+              beta1[k] ~ dnorm (mu.int[k],tau.mu[k])  
+              mu.int[k] ~ dnorm(0, 0.001)
+              tau.mu[k] <- 1/(sigma.int[k]*sigma.int[k])
+              sigma.int[k] ~ dunif(0,10)
+        }
+      
+        ### regression coefficient depicting the influence of turf cover
+        for (k in 1:nspec) {
+              beta2[k] ~ dnorm (mu.int2[k],tau.mu2[k])  
+              mu.int2[k] ~ dnorm(0, 0.001)
+              tau.mu2[k] <- 1/(sigma.int2[k]*sigma.int2[k])
+              sigma.int2[k] ~ dunif(0,10)
+        }
+        
+        
+        # =====================================================================
+        
+        # MODELS 
+        
+        
+        # Ecological submodel: Define state conditional on parameters
+        
+        
+        for (k in 1:nspec) {
+           for(i in 1:nsite){    ## occupancy model
+              
+              z [i,k] ~ dbern(psi[i,k])
+                      
+              ## This keeps the program on the track
+              psi[i,k]<-max(0.00001,min(0.99999, psi0[i,k]))
+          
+              logit(psi0 [i,k]) <- intercept.psi[k] + beta1 [k]*coral [i] + beta2 [k]*turf [i]
+                                                        
+              }
+         }
+              
+         
+         # observation submodel: detection probability based on depth and videos
+                      
+         for (k in 1:nspec) { # loop across spp
+                         
+            for (n in 1:nobs) { ## loop over observations
+                            
+               y [n,k] ~ dbern(muY[site[n], occa[n],k])
+               muY [site[n], occa[n],k] <- z[site[n],k] * p[k,n]
+               logit (p[k,n]) <-  intercept.depth[k,prof[n]]+ # detection model
+                                  #alpha1.time[k]*time[n] + 
+                                  intercept.p[k, occa[n]]
+                
+             }
+      
+          }
+              
+              
+          ##############################################################
+          #                      Goodness of fit                       #
+          #       (based on posterior predictive checks)               #
+          ##############################################################
+          
+          
+          # Draw a replicate data set under the fitted model
+          for (k in 1:nspec) {
+             for (n in 1:nobs){
+                yrep[n,k] ~ dbern(muYrep[site [n], occa[n],k])
+                muYrep [site [n], occa[n],k] <- z[site [n],k]*p[k,n]
+             }
+          }
+          
+          # Compute detection frequencies for observed and replicated data
+          ## the first loop is used to extract data for each site    
+          ## The outside function sum is used to aggregate data
+          
+          for (k in 1:nspec) {
+            for (i in 1:nsite) {
+              for (n in 1:nobs) {
+          
+                y.prov [i,n,k] <- ifelse (site[n] == i, y [n,k],0)## temporary data
+                yrep.prov [i,n,k] <- ifelse (site[n] == i, yrep [n,k],0)## temporary data
+              
+                 }
+          
+            detfreq [i,k] <- sum (y.prov[i,,k]) ## aggregate data
+            detfreqrep [i,k] <- sum (yrep.prov[i,,k]) ## aggregate data
+          
+           }
+         }
+          
+        # Expected detection frequencies under the model
+        for (k in 1:nspec) {
+           for (n in 1:nobs){
+              tmp[n,k] <- z[site[n],k] * p[k,n]
+           }
+         }
+          
+        ## the first loop is used to extract data for each site    
+        ## The outside function 'sum' is used to aggregate data
+        
+        for (k in 1:nspec) {
+            for (i in 1:nsite) {
+               for (n in 1:nobs) {
+          
+                  E.prov [i,n,k] <- ifelse (site[n] == i, tmp [n,k],0) ## temporary data
+                  
+              }
+          
+              E [i,k] <- sum (E.prov[i,,k]) ## aggregate data
+          
+           }
+         }
+          
+        # discrepancy statistics
+        for (k in 1:nspec) {
+           for (i in 1:nsite) {
+          
+              # Chi-square and Freeman-Tukey discrepancy measures
+              # ..... for actual data set
+              x2Closed[i,k] <- pow((detfreq[i,k] - E[i,k]),2) / (E[i,k]+e)
+              ftClosed[i,k] <- pow((sqrt(detfreq[i,k]) - sqrt(E[i,k])),2)
+              # ..... for replicated data set
+              x2repClosed[i,k] <- pow((detfreqrep[i,k] - E[i,k]),2) / (E[i,k]+e)
+              ftrepClosed[i,k] <- pow((sqrt(detfreqrep[i,k]) - sqrt(E[i,k])),2)
+             }
+         }
+          
+        # Add up Chi-square and FT discrepancies and compute fit stat ratio
+        # (closed part)
+        for (k in 1:nspec) {
+           Chi2Closed[k] <- sum(x2Closed[1:nsite,k])
+           FTClosed[k] <- sum(ftClosed[1:nsite,k])
+           Chi2repClosed[k] <- sum(x2repClosed[1:nsite,k])
+           FTrepClosed[k] <- sum(ftrepClosed[1:nsite,k])
+           Chi2ratioClosed[k] <- Chi2Closed[k] / Chi2repClosed[k]
+           FTratioClosed[k] <- FTClosed[k] / FTrepClosed[k]
+              
+           # Derived parameters
+           mutot[k] <- sum(psi[1:nsite,k]) ## expected number of occupied sites (infinite sample size)
+           n.occ[k] <- sum(z[1:nsite,k]) ## finite sample
+           mean.p[k] <- mean (p[k,]) # mean detection probability per spp
+        }
+        
+        ## richness likely supported by each coral species
+        
+        for (i in 1:nsite) {
+           
+           rich[i] <- sum (z[i,])
+           
+        }
+        
+        # mean regression coefficients
+           mean.beta1 <- mean(beta1)
+           mean.beta2 <- mean(beta2)
+           
+           
+           
+      } # end of the model
+        
+
+    
