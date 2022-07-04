@@ -8,3 +8,5 @@ MS_presentation/
 *.pptx
 *.docx
 data/detection
+*.svg
+*.pdf

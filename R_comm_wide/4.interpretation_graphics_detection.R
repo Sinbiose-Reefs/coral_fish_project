@@ -2,196 +2,117 @@
 ## Interpreting detection
 
 # load packages and functions
-source ("R/packages.R")
-source ("R/functions.R")
+source ("R_comm_wide/packages.R")
+source ("R_comm_wide/functions.R")
 
 # load basic data for naming the table dims
 ## fish data
-load (here("output_comm_wide","Data_fish_detection_LONGO_AUED.RData"))
-
-## coral detection - with coordinates
-load (here("output_comm_wide","Data_coral_detection_LONGO_AUED.RData"))
+load (here("output_comm_wide_R1","Data_fish_detection_LONGO_AUED.RData"))
 
 ## LOAD MODEL RESULTS
-load(here("output_comm_wide","samples_OCCcoral_PdepthTime_longo.RData")) 
-
-## LOAD MODEL RESULTS
-load(here("output_comm_wide","samples_OCCcoral_PdepthTime_longo_RdmP.RData")) 
+load(here("output_comm_wide_R1","samples_OCCcoral_PdepthTime_longo_RdmP.RData")) 
 
 # ---------------------------------------- #
 # load traits to link traits and detection
 # ---------------------------------------- #
 
 ## load trait data
-traits_peixes <- read.csv(here("data","traits","Atributos_especies_Atlantico_&_Pacifico_Oriental_2020_04_28.csv"),
+traits_peixes <- read.csv(here("output_comm_wide_R1","tabS1.2.csv"),
                           h=T,sep=";")
-traits_peixes$Name <- tolower (gsub (" ",".", traits_peixes$Name))
-traits_peixes$Name <- gsub("\\."," ", paste0(toupper(substr(traits_peixes$Name, 1, 1)), 
-                                             substr(traits_peixes$Name, 2, 100)))
 
-# adjusting trait values
-traits_peixes$Body_size <- as.numeric(gsub (",",".",traits_peixes$Body_size))
-traits_peixes$Aspect_ratio <- as.numeric(gsub (",",".",traits_peixes$Aspect_ratio))
-traits_peixes$Trophic_level <- as.numeric(gsub (",",".",traits_peixes$Trophic_level))
-
-# replacing NAs in aspect ratio by genera average
-## finding genera
-genera <- unlist(
-  lapply (
-    strsplit (traits_peixes$Name [which(is.na(traits_peixes$Aspect_ratio))]," "),"[",1)
-)
-
-# calculate the average for species with congenera 
-mean_av_ratio <- unlist(lapply (genera, function (i)
-  mean (traits_peixes [grep (i , traits_peixes$Name),"Aspect_ratio"],na.rm=T)
-))
-# imput in the table
-traits_peixes[which(is.na(traits_peixes$Aspect_ratio)),"Aspect_ratio"] <- mean_av_ratio
-
-# adjusting names
-
-traits_peixes$Name <- gsub (" ",".",tolower (traits_peixes$Name))
-
-# influence of time
+# influence of depth and average detection
 # coef plot
 
 df_coef_time <- lapply (seq(1,length(coral_species)), function (i) 
-  data.frame (
-    coral = coral_species[i],
-    peixe = fish_species [[i]],
-    size = traits_peixes [match(fish_species [[i]],traits_peixes$Name),"Body_size"],# 
-    group = traits_peixes [match(fish_species [[i]],traits_peixes$Name),"Size_group"],
-    meanP = apply (samples_OCCcoral_PdepthTime_longo_RdmP[[i]]$sims.list$mean.p,2,mean),
-    estimate = apply (samples_OCCcoral_PdepthTime_longo_RdmP[[i]]$sims.list$alpha1.time,2,mean),
-    low = apply (samples_OCCcoral_PdepthTime_longo_RdmP[[i]]$sims.list$alpha1.time,2,quantile,0.05),
-    high = apply (samples_OCCcoral_PdepthTime_longo_RdmP[[i]]$sims.list$alpha1.time,2,quantile,0.95)
-))
+  
+  lapply (seq (1,length(samples_OCCcoral_PdepthTime_longo_RdmP[[1]])), function (age)
+  
+    data.frame (
+      coral = coral_species[i],
+      peixe = fish_species [[i]][[age]],
+      age = age,
+      size = traits_peixes [match(fish_species [[i]][[age]],traits_peixes$Scientific.name),"Maximum.body.size"],# 
+      meanP = apply (samples_OCCcoral_PdepthTime_longo_RdmP[[i]][[age]]$sims.list$mean.p,2,mean),
+      lowP = apply (samples_OCCcoral_PdepthTime_longo_RdmP[[i]][[age]]$sims.list$mean.p,2,quantile,0.05),
+      highP = apply (samples_OCCcoral_PdepthTime_longo_RdmP[[i]][[age]]$sims.list$mean.p,2,quantile,0.95),
+      #shallow (1-7m)
+      estimate.Shallow = samples_OCCcoral_PdepthTime_longo_RdmP[[i]][[age]]$mean$alpha.depth[,1],
+      estimate.shallow.lowP = apply (samples_OCCcoral_PdepthTime_longo_RdmP[[i]][[age]]$sims.list$alpha.depth[,,1],2,quantile,0.05),
+      estimate.shallow.highP = apply (samples_OCCcoral_PdepthTime_longo_RdmP[[i]][[age]]$sims.list$alpha.depth[,,2],2,quantile,0.05),
+      # deep
+      estimate.Deep = samples_OCCcoral_PdepthTime_longo_RdmP[[i]][[age]]$mean$alpha.depth[,2],
+      estimate.deep.lowP = apply (samples_OCCcoral_PdepthTime_longo_RdmP[[i]][[age]]$sims.list$alpha.depth[,,1],2,quantile,0.05),
+      estimate.deep.highP = apply (samples_OCCcoral_PdepthTime_longo_RdmP[[i]][[age]]$sims.list$alpha.depth[,,2],2,quantile,0.05)
+      
+)))
 
 # ordered body size
 
 df_coef_time <- lapply (df_coef_time, function (i) 
-  i[order (i$size,decreasing=F),]
-)
+  lapply (i, function (k)
+  k[order (k$size,decreasing=F),]
+))
 
-# ordering based on body size and group size
-df_coef_time <- lapply (df_coef_time, function (i) {
-    i$peixe <- factor(i$peixe,
-                      levels = i$peixe[order(i$size,decreasing=F)])
-    i$group <- factor(i$group, 
-                                 levels = c("sol","pair", "smallg", "medg", "largeg"))
-    
-    ;
-    i
 
-    })
+# melt to fit to the format ggplot likes
 
-# scatter plot detection and time
-ggplot (df_coef_time[[1]], aes (x=size, y = estimate)) + 
-          geom_point() + theme_classic() +
-  xlab("Body size (cm)") + 
-  ylab("Regression coefficient estimate") + 
-  geom_smooth(method="lm")
-
-summary(lm(estimate~size,data=df_coef_time[[1]]))
-
-# scatter plot detection and time
-ggplot (df_coef_time[[1]], aes (x=group, y = estimate)) + 
-  geom_boxplot(fill="gray80") + theme_classic() +
-  xlab("Body size (cm)") + 
-  ylab("Regression coefficient estimate")
-
-summary(lm(estimate~group,data=df_coef_time[[4]]))
-
-# coefficient plot
-lapply (seq (1,length(coral_species)), function (i) {
+df_detection <- lapply (df_coef_time, function (coral)
   
-  dodge <- c(0.2,0.2)
-  pd <- position_dodge(dodge)
+ do.call(rbind, lapply (coral, function (age)
   
-  a <- ggplot (df_coef_time[[i]], aes  (y=peixe, x=estimate, fill=coral,
-                            colour=coral)) + 
-    geom_errorbar(aes(xmin=low,xmax=high),width = 0,
-                  position=pd) + theme_classic() + 
-    geom_point()+ 
-    geom_vline(xintercept = 0, linetype="dashed", 
-               color = "gray50", size=0.5)+
-    scale_color_manual(values=c("gray70", "gray60", "gray50",
-                                "gray40","black")) + 
-    xlab("Regression coefficient estimate") + 
-    ylab ("Reef fish species") + 
-    xlim(-8, 8) + 
-    theme (legend.position = "none") + 
-    facet_wrap(~coral, scales="fixed")
+  melt (age,id.var = c("coral","peixe","age","size","meanP","lowP","highP",
+                       "estimate.deep.lowP","estimate.deep.highP",
+                       "estimate.shallow.lowP","estimate.shallow.highP"))
   
-  a
-  
-  ggsave (here("output_comm_wide", paste("detectionVideoTime",i,".pdf")),width=5,heigh=4.5)
-  
-  }
-)
+  )))
 
-## depth effect
-depth_df <- lapply(seq(1,length(fish_species)), function (i) 
-  ## average sp detection across MCMC sampels
-  apply(samples_OCCcoral_PdepthTime_longo_RdmP[[i]]$sims.list$alpha.depth,c(1,3),mean)
-)
+# melt again
+df_detection<-do.call(rbind,df_detection)
+df_detection$variable<-gsub ("estimate.","",
+                             df_detection$variable)
+df_detection$coral <- firstup(df_detection$coral)
 
-names(depth_df) <- coral_species
+# aggregate across corals
+require(dplyr)
+df_detection <- df_detection %>% group_by (peixe,age,variable) %>%
 
-# melt to plot
-depth_df <- lapply(depth_df,melt)
+  summarize(size = mean(size,na.rm=T),
+            meanP = mean(meanP, na.rm = TRUE),
+            lowP = max(lowP,na.rm=T),
+            highP = min(highP,na.rm=T),
+            estimate.deep.lowP = min(estimate.deep.lowP,na.rm=T),
+            estimate.deep.highP  = max(estimate.deep.highP , na.rm=T),
+            estimate.shallow.lowP = min(estimate.shallow.lowP,na.rm=T), 
+            estimate.shallow.highP = max(estimate.shallow.highP,na.rm=T), 
+            value = mean(value,na.rm=T))
 
-# do.call
-depth_df <- do.call (rbind,depth_df)
 
-# sp names
+# binomial smooth
 
-nms <- do.call (rbind, 
-                lapply (strsplit(rownames(depth_df),"\\."), function (i)
-                  (i[c(1,2)])))
-
-nms <- sapply (seq(1,nrow(nms)), function (i){
-  
-  paste(nms[i,1],nms[i,2],sep=".")
-  
+binomial_smooth <- function(...) {
+  geom_smooth(method = "glm", method.args = list(family = "binomial"), ...)
 }
-)
 
-## cbind
-depth_df <- cbind (depth_df,nms)
-depth_df$Var2 <- factor(depth_df$Var2)
-levels(depth_df$Var2)[which(levels(depth_df$Var2) == "1")] <- "Shallow"
-levels(depth_df$Var2)[which(levels(depth_df$Var2) == "2")] <- "Deep"
+df_detection$age <- ifelse(df_detection$age == 1, 
+                           "Adult", "Juvenile")
+# scatter plot detection and time
+ggplot (df_detection, aes (x=size, y = value,
+                   group = variable,
+                   colour=variable)) + 
+          geom_point() +
+  facet_wrap(~age,ncol=4,scales="free_x")+
+  theme_classic() +
+  theme(legend.position = c(0.93,0.38),
+        legend.title = element_blank(),
+        strip.text = element_text(face="italic"))+
+  xlab("Body size (cm)") + 
+  ylab("Detection probability (p)") + 
+  binomial_smooth(se=F) + 
+  geom_errorbar(aes(xmin=lowP,xmax=highP),width = 1)
 
-# plot
-ggplot (depth_df, aes(x=Var2, y=value,group=Var2)) + 
-  geom_boxplot(fill="gray80") + theme_classic() +
-  xlab("Depth") + ylab("Detection probability") + 
-  facet_wrap(~ nms)
+# save
+ggsave(here ("output_comm_wide_R1", "figures", "detection.png"),
+       height=8,width=8)
 
-ggsave (here("output_comm_wide", "detectionVideo_depth.png"),width=4,height = 4)
-
-
-## with body size
-# size and detection
-df_coef_time <- do.call(rbind,df_coef_time)
-ggplot (df_coef_time,aes (x=size, y=meanP)) +
-  geom_point()+
-  theme_classic() + ylab ("Detection probability")+xlab("Body size (cm)")+
-  geom_smooth(method="glm")+
-  facet_wrap(~coral,scales = "fixed")
-
-ggsave (here("output_comm_wide", "detectionVideo_size.png"),width=4,height = 4)
-
-# group size
-ggplot (df_coef_time,aes (x=group, y=meanP)) +
-  geom_boxplot(fill="gray80")+
-  theme_classic() + ylab ("Detection probability")+xlab("Group size")+
-  geom_smooth(method="glm")+
-  facet_wrap(~coral,scales = "fixed")
-
-ggsave (here("output_comm_wide", "detectionVideo_group.png"),width=4,height = 4)
-
-# end
 
 
