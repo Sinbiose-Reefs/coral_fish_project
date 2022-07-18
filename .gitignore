@@ -11,4 +11,6 @@ data/detection
 *.svg
 *.pdf
 *.png
+*.csv
+*.xslx
 
