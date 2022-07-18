@@ -18,20 +18,23 @@ load(here("output_comm_wide_R1","samples_OCCcoral_PdepthTime_longo_RdmP.RData"))
 
 ## load trait data
 traits_peixes <- read.csv(here("output_comm_wide_R1","tabS1.2.csv"),
-                          h=T,sep=";")
+                          h=T,sep=",")
+
+
 
 # influence of depth and average detection
 # coef plot
 
 df_coef_time <- lapply (seq(1,length(coral_species)), function (i) 
   
+  
   lapply (seq (1,length(samples_OCCcoral_PdepthTime_longo_RdmP[[1]])), function (age)
   
     data.frame (
       coral = coral_species[i],
-      peixe = fish_species [[i]][[age]],
+      peixe = fish_species[[i]][[age]],
       age = age,
-      size = traits_peixes [match(fish_species [[i]][[age]],traits_peixes$Scientific.name),"Maximum.body.size"],# 
+      size = traits_peixes [match(fish_species [[i]][[age]],traits_peixes$scientificName),"Body_size"],# 
       meanP = apply (samples_OCCcoral_PdepthTime_longo_RdmP[[i]][[age]]$sims.list$mean.p,2,mean),
       lowP = apply (samples_OCCcoral_PdepthTime_longo_RdmP[[i]][[age]]$sims.list$mean.p,2,quantile,0.05),
       highP = apply (samples_OCCcoral_PdepthTime_longo_RdmP[[i]][[age]]$sims.list$mean.p,2,quantile,0.95),
@@ -111,7 +114,7 @@ ggplot (df_detection, aes (x=size, y = value,
         strip.text = element_text(face="italic"))+
   xlab("Body size (cm)") + 
   ylab("Detection probability (p)") + 
-  binomial_smooth(se=T,alpha=0.3) #+ 
+  binomial_smooth(se=F,alpha=0.3) #+ 
   #geom_errorbar(aes(ymin=lowP,ymax=highP),
   #              position=pd,
   #              width = 0)

@@ -307,6 +307,9 @@ sims_to_df$group <- NA
 sims_to_df$group[grep("coral",sims_to_df$variable)] <- "coral"
 sims_to_df$group[grep("turf",sims_to_df$variable)] <- "turf"
 
+# fist to up
+sims_to_df$coral <- firstup(sims_to_df$coral)
+
 # library
 library(ggridges)
 library(ggplot2)
@@ -315,12 +318,15 @@ library(ggplot2)
 assem_res <- ggplot(sims_to_df, aes(x = value, y = coral, fill = variable)) +
   geom_density_ridges(alpha=0.5) +
   theme_ridges() + 
-  theme(legend.position = "none") + 
+  theme(legend.position = "none",
+        axis.title = element_blank(),
+        axis.text.y = element_text(face = "italic")) + 
   scale_fill_manual(values = c("adult.coral" = "#990000",
                                "juvenile.coral" = "#F47C7C",
                                "adult.turf" = "#4B8673",
                                "juvenile.turf" = "#C7D36F")) +
-  facet_wrap(~group,scales = "fixed")
+  facet_wrap(~group,scales = "fixed") 
+  
 
 
 
@@ -434,13 +440,19 @@ tabS3 <- do.call(rbind,extracted_data) %>%
           "Age class" = "age",
           "Bayesian P-value" = "mRdmP") %>%
   select (-sp)
+
+
 # save this complete result to be shown in the supoporting information
 # table with all estimates, Credible intervals, and bayesian P-value
 write.csv (tabS3, file = here ("output_comm_wide_R1",
                                "tabS1.3.csv"))
 
+
+
 #############################################################
 ## plots of regression coefficients (fig 3 of the main text)
+
+
 
 sp_analyzed_response <- do.call(rbind, extracted_data) # melt data
 # find coral associated fish
@@ -1014,6 +1026,16 @@ data_violin$coral<-firstup(data_violin$coral)
 # number is the point size
 data_violin$age<- (ifelse (data_violin$age == "adult",2,1))
 
+# total loss
+data_violin[which(data_violin$scenario == "Total loss"),]
+# random average
+mean(data_violin[which(data_violin$scenario == "random"),"value"])
+sd(data_violin[which(data_violin$scenario == "random"),"value"])
+
+# loss per coral
+data_violin[which(data_violin$scenario == "Loss per coral"),]
+
+
 # plot
 require(ggplot2)
 
@@ -1269,7 +1291,7 @@ plotC <- plotC+ geom_segment(aes(x = 0, y = 0,
          axis.text = element_blank())
 
 # save to pdf
-png (here ("output_comm_wide_R1", "figures","figS1.1.png"),
+png (here ("output_comm_wide_R1", "figures","figS1.1"),
      width = 40, height = 12, units = "cm",res=300)
 
 # organize the trait spaces

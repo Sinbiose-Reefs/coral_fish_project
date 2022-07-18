@@ -239,19 +239,18 @@ sink()
 
 # Inner PART
 ## load packages
-source("R_comm_wide/packages.R")
+source("./R_comm_wide/packages.R")
 
 ## fish data
 load (here("output_comm_wide_R1","Data_fish_detection_LONGO_AUED.RData"))
 
-## coral data
-#load (here("output_comm_wide","Data_coral_detection_LONGO_AUED.RData"))
-
-# standardize it
+# standardize data
 coral_cover_data_std <- apply (cob_corals, 2, function (i)
   (i - mean (i))/sd(i))
+
 # standardize turf
 turf_cover_data_std <- (cob_algae$`calcareous turf` - mean(cob_algae$`calcareous turf`))/sd(cob_algae$`calcareous turf`)
+
 
 # correlation between benthic components    
 correlations <-cor(data.frame(coral_cover_data_std,turf_cover_data_std))
@@ -286,6 +285,7 @@ tabS1 <- cbind (coordenadas,
        cob_corals)
 write.csv (tabS1, file = here ("output_comm_wide_R1",
                                    "tabS1.1.csv"))
+
 # ============================================
 
 set.seed (1234)

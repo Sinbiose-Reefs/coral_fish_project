@@ -12,40 +12,6 @@ source("R_comm_wide/functions.R")
 # create a folder to receive the output
 dir.create("output_comm_wide_R1")
 
-# -------------------------------------------------------------------------- #
-# listing the ID sites with larger coral cover based on Aued et al. 2018 PLosOne
-# -------------------------------------------------------------------------- #
-#locais_corais <- c("abrolhos",
-#                   "alcatrazes",
-#                   "arraial",
-#                   "btds_santos",
-#                   "costa_corais",
-#                   "ceara",
-#                   "espirito_santo",
-#                   "ilhabela",
-#                   "manuel_luis",
-#                   "rgnor_parrachos",
-#                   "rgnor_norte",
-#                   "rgnor_sul",
-#                   ## ilhas
-#                   "noronha",
-#                   "rocas",
-#                   "trindade")
-
-# ----------------------
-# load benthic data set (Aued et al. 2018)
-#bentos <- read.xlsx(here("data","detection","Updated_compiled_quadrats_allsites.xlsx"),
-#                    sheet = 1, colNames = TRUE,detectDates=F)
-#bentos$eventDate <-convertToDate(bentos$eventDate)# adjust data - bug of 'openxlsx'
-#
-## ------------------------
-## load video plot data from Longo et al. 2019
-#L.peixes<- read.xlsx(here("data","detection","occ_Longo_et_al","Data_Trophic_Interactions_WAtlantic_GLongo_clean_UPDATED_ALL.xlsx"),
-#                     sheet = 1, colNames = TRUE,detectDates=F)
-#L.peixes$date <-convertToDate(L.peixes$date)# adjust data - bug of 'openxlsx'
-#L.peixes$ScientificName <- tolower (L.peixes$ScientificName)# lower case
-
-
 # load trait data (to find adult and juvenile fish)
 
 traits <- read.csv (here ("data", "traits", "Atributos_especies_Atlantico_&_Pacifico_Oriental_2020_04_28.csv"),
@@ -67,9 +33,10 @@ L.peixes <- cbind (fish_emof,
                    L.peixes) # cbind
 
 
+
 # match fish and trait data
 L.peixes <- cbind (L.peixes,
-                   traits [match (L.peixes$scientificName,tolower (traits$Name)),
+                   traits [match (L.peixes$scientificName, (traits$Name)),
                            c("Name", 
                              "Body_size",
                              "Aspect_ratio",
@@ -86,13 +53,10 @@ L.peixes$Trophic_level <- as.numeric(gsub (",",".",L.peixes$Trophic_level))
 L.peixes$Depth_max <- as.numeric(gsub (",",".",L.peixes$Depth_max))
 L.peixes$TempPref_max <- as.numeric(gsub (",",".",L.peixes$TempPref_max))
 
-# matching sites across datasets
-#bentos <- bentos [which(bentos$locationID %in% locais_corais),] # which sites are in the list of sites
-#L.peixes <- L.peixes [which(L.peixes$locationID %in% locais_corais),]# which sites are in the list of sites
 
-# order of locationIDs
-unique(bentos$locationID)[order(unique(bentos$locationID))]
-unique(L.peixes$locationID)[order(unique(L.peixes$locationID))]
+# order of sites
+unique(bentos$site)[order(unique(bentos$site))]
+unique(L.peixes$site)[order(unique(L.peixes$site))]
 
 
 # nspp Longo et al. 
@@ -108,31 +72,33 @@ unique_spp_longo138 <- unique(L.peixes$scientificName)
 L.peixes_subset <- L.peixes#[which (L.peixes$ScientificName %in% sp_fundo_sed_fam$Name),]
 
 # matching sites after remover of species
-L.peixes_subset <- L.peixes_subset [which(L.peixes_subset$locationID %in% bentos$locationID),]# fish
-L.bentos_subset <- bentos [which(bentos$locationID %in% L.peixes_subset$locationID),]# benthos
-unique(L.peixes_subset$locationID)[order(unique(L.peixes_subset$locationID))]
-unique(L.bentos_subset$locationID)[order(unique(L.bentos_subset$locationID))]
+L.peixes_subset <- L.peixes_subset [which(L.peixes_subset$site %in% bentos$site),]# fish
+L.bentos_subset <- bentos [which(bentos$site %in% L.peixes_subset$site),]# benthos
+unique(L.peixes_subset$site)[order(unique(L.peixes_subset$site))]
+unique(L.bentos_subset$site)[order(unique(L.bentos_subset$site))]
 
 # rm fishes not identified, weird names ...
 # unique(L.peixes_subset$ScientificName)
-list_to_rm <- c("kyphosus sp",
-                "sparisoma sp",
-                "lutjanus sp",
-                "caranx sp1",
-                "scarus sp",
-                "acanthurus sp",
-                "labrisomus sp",
-                "malacoctenus sp",
-                "bothus sp",
-                "parablennius sp",
-                "caranx sp2",
-                "synodus sp",
-                "scorpaena sp",
-                "halichoeres sp",
-                "not identified")
+list_to_rm <- c("kyphosus",
+                "sparisoma",
+                "lutjanus",
+                "caranx",
+                "scarus",
+                "acanthurus",
+                "labrisomus",
+                "malacoctenus",
+                "bothus",
+                "parablennius",
+                "caranx",
+                "synodus",
+                "scorpaena",
+                "halichoeres",
+                "not identified",
+                "mycteroperca",
+                "haemulon")
 
 # maintain spp not in this list
-L.peixes_subset<- L.peixes_subset[which(L.peixes_subset$scientificName %in% list_to_rm ==F), ]
+L.peixes_subset<- L.peixes_subset[which(tolower (L.peixes_subset$scientificName) %in% list_to_rm ==F), ]
 #L.peixes_subset<- L.peixes_subset[is.na(L.peixes_subset$scientificName) !=T, ]
 
 unique(L.peixes_subset$scientificName)[order(unique(L.peixes_subset$scientificName))]
@@ -166,7 +132,7 @@ summary(L.peixes_subset$maximumDepthinMeters [which(L.peixes_subset$depthCategor
 
 
 # defining the sites
-sites_longo <- paste (L.peixes_subset$locationID,
+sites_longo <- paste (L.peixes_subset$site,
                       L.peixes_subset$locality,
                       L.peixes_subset$depthCategorical,
                       sep = ".")
@@ -188,27 +154,46 @@ L.peixes_subset[which(L.peixes_subset$measurementType == "foraging behavior"),"m
 # define fish age
 
 fish_size <- L.peixes_subset[which(L.peixes_subset$measurementType == "total length"),]
+fish_size$measurementValue <- as.numeric(fish_size$measurementValue)
 fish_size$Fish_age<-NA
 
 
-# Maximum body size 8-16cm, consideramos adultos indivíduos >5cm
-fish_size [which(fish_size$Body_size >= 8 & 
-                   fish_size$Body_size <= 16 &
-                   fish_size$measurementValue > 5),"Fish_age"] <- "Adult"
-fish_size [which(fish_size$Body_size >= 8 & 
-                   fish_size$Body_size <= 16 &
-                   fish_size$measurementValue <= 5),"Fish_age"] <- "Juvenile"
+# Maximum body size 8-16cm, adults >5cm
+# adult
+fish_size$Fish_age <- ifelse (fish_size$Body_size >= 8 & 
+          fish_size$Body_size <= 16 &
+          fish_size$measurementValue > 5, 
+        "Adult", 
+        fish_size$Fish_age )
+
+# juvenile
+fish_size$Fish_age <- ifelse (fish_size$Body_size >= 8 & 
+                                fish_size$Body_size <= 16 &
+                                fish_size$measurementValue <= 5, 
+                              "Juvenile", 
+                              fish_size$Fish_age )
 
 
-# Maximum body size >16cm, consideramos adultos indivíduos >10cm
-fish_size [which(fish_size$Body_size > 16 &
-                   fish_size$measurementValue > 10),"Fish_age"] <- "Adult"
-fish_size [which(fish_size$Body_size > 16 &
-                   fish_size$measurementValue <= 10),"Fish_age"] <- "Juvenile"
+# Maximum body size >16cm, adults >10cm
+# adult
+fish_size$Fish_age <- ifelse (fish_size$Body_size >16  &
+                                fish_size$measurementValue > 10, 
+                              "Adult", 
+                              fish_size$Fish_age )
+
+# juvenile
+fish_size$Fish_age <- ifelse (fish_size$Body_size >16  &
+                                fish_size$measurementValue <= 10, 
+                              "Juvenile", 
+                              fish_size$Fish_age )
 
 # elacatinus figaro (prettysmall, cleaner fish, only adults observed)
 fish_size [which(fish_size$Body_size < 5),"Fish_age"] <- "Adult"
 
+# check
+range(fish_size[which(fish_size$Fish_age == "Adult"),c("Body_size", "measurementValue")] [,"measurementValue"])
+# 3 cm is elacatinus figaro
+range(fish_size[which(fish_size$Fish_age == "Juvenile"),c("Body_size", "measurementValue")][,"measurementValue"])
 
 
 
@@ -220,8 +205,6 @@ foraging_behavior$measurementValue <- as.numeric(foraging_behavior$measurementVa
 
 # bind age
 
-#table(fish_size$eventID == foraging_behavior$eventID)
-#table(fish_size$scientificName == foraging_behavior$scientificName)
 foraging_behavior<- cbind (foraging_behavior,
                            age = fish_size$Fish_age)
 
@@ -234,6 +217,7 @@ fish_age <- unique(foraging_behavior$age)[is.na(unique(foraging_behavior$age))!=
 
 # find videos per sampling event
 splitted_eventid<-strsplit (foraging_behavior$eventID, "_")
+
 # gather videoID
 videoid <- lapply (splitted_eventid, function (i)
   i[length(i)]
@@ -350,7 +334,8 @@ imputed_longo_data <- lapply (imputed_longo_data, function (age) {
 
 list_sp_longo_adult <- unique(unlist (lapply (imputed_longo_data[[1]], '[',1)))# list of fish spp, adult
 list_sp_longo_juvenile <- unique(unlist (lapply (imputed_longo_data[[2]], '[',1)))# list of fish spp, juveline
-list_sp_longo_juvenile %in% list_sp_longo_adult # not all adults are found as juvenile
+table(list_sp_longo_juvenile %in% list_sp_longo_adult) # not all adults are found as juvenile
+
 # list of spp per age
 list_sp_longo <- list (list_sp_longo_adult,list_sp_longo_juvenile)
 
@@ -611,7 +596,7 @@ summary(L.bentos_subset$maximumDepthinMeters [which(L.bentos_subset$depthCategor
 
 
 # defining the sites
-sites_bentos <- paste (L.bentos_subset$locationID,
+sites_bentos <- paste (L.bentos_subset$site,
                        L.bentos_subset$locality,
                        L.bentos_subset$depthCategorical,
                       sep = ".")
@@ -824,7 +809,7 @@ cob_corals<-cob_corals[,sel_corals]
 
 # which corals occur in a min of sites (20% of total number of sites)
 
-min_sites<- 0#round(nrow (cob_corals) * 0.2)
+#min_sites<- 0#round(nrow (cob_corals) * 0.2)
 
 
 
@@ -862,7 +847,7 @@ site_coral_detection <- ifelse (cob_corals >0,1,0)# sites with coral detection
 
 ## finally we select species with spatial match
 
-subset_peixes <- lapply (seq (1,length(over_peixe_coral)), function (coral) # each coral
+subset_peixes <- lapply (seq (1,ncol(site_coral_detection)), function (coral) # each coral
   
   
   lapply (seq (1,length(arranjo_longo_sitio_video)), function (age) # and age
@@ -1056,13 +1041,13 @@ most_det_adult[order(most_det_adult)]
 most_det_juvenile <- unlist(most_det$`porites astreoides`$juvenile)
 names(most_det_juvenile) <- fish_species[[1]][[2]]
 
-most_det_juvenile[order(most_det_juvenile)]
+(most_det_juvenile[order(most_det_juvenile)])
 
 # put into a df
-most_det <- data.frame (ndet=most_det,
-                        sp = unlist(fish_species))
+#most_det <- data.frame (ndet=most_det,
+#                        sp = unlist(fish_species))
 
-most_det <- most_det[order(most_det$ndet,decreasing=T),] # order
+#most_det <- most_det[order(most_det$ndet,decreasing=T),] # order
 #write.table (most_det, file = here("output_comm_wide","most_detVIDEO.csv")) # and save
 
   
