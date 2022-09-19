@@ -155,7 +155,7 @@ df_hist <- data.frame (cover = cob_bentos$`calcareous turf`,
                        group = "turf")
 df_hist <- rbind (df_hist, 
                   
-                    data.frame (cover = apply (cob_corals[,-1],1,sum),
+                    data.frame (cover = apply (cob_corals,1,sum),
                                        group = "corals")) 
 
 # hist
@@ -315,8 +315,12 @@ library(ggridges)
 library(ggplot2)
 
 # ridgeline plot
-assem_res <- ggplot(sims_to_df, aes(x = value, y = coral, fill = variable)) +
-  geom_density_ridges(alpha=0.5) +
+assem_res <- ggplot(sims_to_df, aes(x = value, 
+                                    y = coral,
+                                    fill = variable)) +
+  geom_density_ridges(quantile_lines=TRUE,
+                      quantile_fun=function(x,...)mean(x),
+                      alpha=0.5) +
   theme_ridges() + 
   theme(legend.position = "none",
         axis.title = element_blank(),
@@ -400,10 +404,14 @@ extracted_data <-   lapply (seq(1,length(coral_species)), function (coral)
         estimate.coral = mean (samples_OCCcoral_PdepthTime_longo_RdmP[[coral]][[age]]$sims.list$beta1 [,k]),
         low.coral = quantile (samples_OCCcoral_PdepthTime_longo_RdmP[[coral]][[age]]$sims.list$beta1 [,k], 0.05),
         high.coral = quantile (samples_OCCcoral_PdepthTime_longo_RdmP[[coral]][[age]]$sims.list$beta1 [,k],0.95),
+        low.coral25 = quantile (samples_OCCcoral_PdepthTime_longo_RdmP[[coral]][[age]]$sims.list$beta1 [,k], 0.25),
+        high.coral75 = quantile (samples_OCCcoral_PdepthTime_longo_RdmP[[coral]][[age]]$sims.list$beta1 [,k],0.75),
+        
         # ruef
         estimate.turf = mean (samples_OCCcoral_PdepthTime_longo_RdmP[[coral]][[age]]$sims.list$beta2 [,k]),
         low.turf = quantile (samples_OCCcoral_PdepthTime_longo_RdmP[[coral]][[age]]$sims.list$beta2 [,k], 0.05),
         high.turf = quantile (samples_OCCcoral_PdepthTime_longo_RdmP[[coral]][[age]]$sims.list$beta2 [,k],0.95)
+        
         
         
        ) # close df
@@ -490,6 +498,9 @@ a <- ggplot (sp_analyzed_response,
                           group = age)) + 
   geom_errorbar(aes(xmin=low.coral,
                     xmax=high.coral),width = 0,
+                position=pd) +
+  geom_errorbar(aes(xmin=low.coral25,
+                    xmax=high.coral75),width = 0,size=2,alpha=0.75,
                 position=pd) +
   facet_wrap(~coral,nrow=2)+
   theme_classic() + 
@@ -622,9 +633,39 @@ barplots<-ggplot(bar_plot_data_turf_coral,
 barplots
 
 
+# plot
+bar_plot_data_turf_coral$int <- paste (bar_plot_data_turf_coral$coral,
+                                   bar_plot_data_turf_coral$group ,
+                                   sep=".")
+barplots<-ggplot(bar_plot_data_turf_coral,
+                 
+                 aes(fill=Relationship,
+                     y=reorder(int,-value), 
+                     x=value,
+                     group=Relationship
+                 )) + 
+  geom_bar(position="stack", stat="identity",size=1,colour="black") + 
+  
+  theme_classic()+
+  
+  theme (axis.text.x = element_text(angle=45,  hjust = 1,face="italic"),
+         legend.position = "top",
+         axis.ticks.x = element_blank(),
+         axis.line.x = element_blank()) + 
+  scale_fill_viridis_d(option="magma",begin =0.5,end=1) + 
+  facet_wrap(~age,scales = "free_x")+
+  xlab ("Number of species") + 
+  ylab ("Coral species")
+
+barplots
+
+
+
+
+
 # save plots png
-png (here ("output_comm_wide_R1","figures", "fig3.png"),
-     width = 15, height = 15, units = "cm",res=300)
+pdf (here ("output_comm_wide_R1","fig3.pdf"),
+     width = 6, height = 6)
 
 barplots
 
