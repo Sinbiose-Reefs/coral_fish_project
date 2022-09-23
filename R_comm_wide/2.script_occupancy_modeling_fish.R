@@ -363,8 +363,7 @@ samples_OCCcoral_PdepthTime_longo_RdmP <- parLapply (cl,seq(1,length(df_fish_dat
             lapply (seq (1,length(df_fish_data_per_coral[[coral]])), function (age)   { # across ages
               
               
-              #tryCatch( {# catch any error
-                
+                 
                 ## bundle data -> [,,1] because all dims are equal (of any object)
                 str(jags.data<- list(y= df_fish_data_per_coral [[coral]][[age]] [,"y",], 
                                      nspec = dim(df_fish_data_per_coral [[coral]] [[age]][,"y",])[2],
@@ -398,10 +397,7 @@ samples_OCCcoral_PdepthTime_longo_RdmP <- parLapply (cl,seq(1,length(df_fish_dat
                                   DIC = T,
                                   parallel = F)
                   
-                  #},
-                  
-  #error = function(e) return ("NULL")#{print(e); print("retrying...")
-             # )
+                 
 
     }
   ) # close age
