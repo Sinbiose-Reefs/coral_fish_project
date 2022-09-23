@@ -395,11 +395,12 @@ extracted_data <-   lapply (seq(1,length(coral_species)), function (coral)
         # fish
         peixe = fish_species [[coral]][[age]][k],
         age = age,
-        # intercept and credible interval
+        # intercept and 90% credible interval
         intercept = mean (samples_OCCcoral_PdepthTime_longo_RdmP[[coral]][[age]]$sims.list$intercept.psi [,k]),
         low.int = quantile (samples_OCCcoral_PdepthTime_longo_RdmP[[coral]][[age]]$sims.list$intercept.psi [,k], 0.05),
         high.int = quantile (samples_OCCcoral_PdepthTime_longo_RdmP[[coral]][[age]]$sims.list$intercept.psi [,k], 0.95),
-        # regression coefficient and credible interval
+       
+         # regression coefficient and 90% credible interval
         # corals
         estimate.coral = mean (samples_OCCcoral_PdepthTime_longo_RdmP[[coral]][[age]]$sims.list$beta1 [,k]),
         low.coral = quantile (samples_OCCcoral_PdepthTime_longo_RdmP[[coral]][[age]]$sims.list$beta1 [,k], 0.05),
@@ -407,7 +408,7 @@ extracted_data <-   lapply (seq(1,length(coral_species)), function (coral)
         low.coral25 = quantile (samples_OCCcoral_PdepthTime_longo_RdmP[[coral]][[age]]$sims.list$beta1 [,k], 0.25),
         high.coral75 = quantile (samples_OCCcoral_PdepthTime_longo_RdmP[[coral]][[age]]$sims.list$beta1 [,k],0.75),
         
-        # ruef
+        # turf
         estimate.turf = mean (samples_OCCcoral_PdepthTime_longo_RdmP[[coral]][[age]]$sims.list$beta2 [,k]),
         low.turf = quantile (samples_OCCcoral_PdepthTime_longo_RdmP[[coral]][[age]]$sims.list$beta2 [,k], 0.05),
         high.turf = quantile (samples_OCCcoral_PdepthTime_longo_RdmP[[coral]][[age]]$sims.list$beta2 [,k],0.95)
@@ -764,17 +765,6 @@ RTS_age <- lapply (unique(total$age), function (age){
       pk <-setB[which(setB$ext1==F),]
       f <- pk [chull(pk, y = NULL),]
       
-      # turf-associated fish
-      #turf_associated <- total[which(total$age == age &
-      #                                 total$low.turf > 0&
-      #                               total$estimate.coral <= 0  
-      #                               ),] 
-      
-      # reduced space
-      #setT<-cbind(all, ext1=ifelse(all$sp %in% 
-      #                               unique(turf_associated$peixe),T,F))
-      #pkT <-setT[which(setT$ext1==F),]
-      #turf <- pkT [chull(pkT, y = NULL),]
       
       
       # quantifying reduction in functional space
@@ -787,12 +777,6 @@ RTS_age <- lapply (unique(total$age), function (age){
       # coral
       chull.poly.coral <- Polygon(f[,1:2], hole=F)
       chull.area.coral <- chull.poly.coral@area
-      
-      
-      
-      # turf
-      #chull.poly.turf <- Polygon(turf[,1:2], hole=F)
-      #chull.area.turf <- chull.poly.turf@area
       
       
       
@@ -833,19 +817,7 @@ RTS_per_coral <-lapply (unique(total$coral), function (coral)
     pk <-setB[which(setB$ext1==F),]
     f <- pk [chull(pk, y = NULL),]
     
-    # turf-associated fish
-    #turf_associated <- total[which(total$high.coral < 0 & 
-    #                                 total$low.turf > 0 & 
-    #                                 total$age == age & 
-    #                                 total$coral == coral),] 
-    
-    # reduced space
-    #setT<-cbind(all, ext1=ifelse(all$sp %in% 
-    #                               unique(turf_associated$peixe),T,F))
-    #pkT <-setT[which(setT$ext1==F),]
-    #turf <- pkT [chull(pkT, y = NULL),]
-    
-    
+   
     
     # quantifying reduction in functional space
     # https://chitchatr.wordpress.com/2015/01/23/calculating-the-area-of-a-convex-hull/
@@ -857,13 +829,6 @@ RTS_per_coral <-lapply (unique(total$coral), function (coral)
     # coral
     chull.poly.coral <- Polygon(f[,1:2], hole=F)
     chull.area.coral <- chull.poly.coral@area
-    
-    
-    
-    # turf
-    #chull.poly.turf <- Polygon(turf[,1:2], hole=F)
-    #chull.area.turf <- chull.poly.turf@area
-    
     
     
     

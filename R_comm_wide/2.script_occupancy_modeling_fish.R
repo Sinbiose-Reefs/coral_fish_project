@@ -278,6 +278,11 @@ juvenile<-unique(unlist(juvenile))#juvenile
 table(juvenile %in% adult)# both
 unique(c(adult, juvenile))
 
+
+# doubt
+doubt<- df_fish_data_per_coral[[1]][[1]][,,"Chaenopsis ocellata"]
+coordenadas$Group.1 [unique(doubt[which(doubt[,"y"]>0),"M"])]
+
 # table of sites
 tabS1 <- cbind (coordenadas, 
        cob_algae$`calcareous turf`,

@@ -1,6 +1,6 @@
 # ------------------------------------------
 # Organizing data (video plots and photoquadrats)
-# fish vulnerability to live coral loss in Southwestern Atlantic reefs
+# low fish vulnerability to live coral loss in Southwestern Atlantic reefs
 
 # First we need to create a 3D array of sites x sampling occasion (video plot) x species.
 # And then we transform the 3D array into a long format data frame, to remove NAs
@@ -115,13 +115,6 @@ unique(L.peixes_subset$scientificName)[order(unique(L.peixes_subset$scientificNa
 ######################################################################
 
 
-
-#sitios_longo <- unique (L.peixes_subset$eventID_MOD)# adjust ID
-#sitios_longo <- gsub ("oc_isl.","",gsub ("se_reefs.","",gsub ("ne_reefs.","",sitios_longo)))# adjust locality/site - rm region
-#sitios_longo <- sitios_longo [order(sitios_longo)]# ordering site names
-#L.peixes_subset$eventID_MOD <- gsub ("oc_isl.","",gsub ("se_reefs.","",gsub ("ne_reefs.","",L.peixes_subset$eventID_MOD))) # edit in original table too
-
-
 # categorical depth
 L.peixes_subset$depthCategorical <- ifelse (L.peixes_subset$maximumDepthinMeters<= 7, "shallow", "deep")
 
@@ -144,8 +137,8 @@ L.peixes_subset$sites_analysis <- sites_longo
 
 
 
-# replace NAs by 1, because there were bite detection in this places
-# L.peixes_subset$number_of_bites [is.na(L.peixes_subset$number_of_bites)] <- 1
+# replace NAs with 1, because there were bite detection in this places
+
 
 L.peixes_subset[which(L.peixes_subset$measurementType == "foraging behavior"),"measurementValue"][is.na(L.peixes_subset[which(L.peixes_subset$measurementType == "foraging behavior"),"measurementValue"])] <- 1
 
