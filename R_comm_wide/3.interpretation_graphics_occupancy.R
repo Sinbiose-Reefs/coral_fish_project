@@ -247,12 +247,55 @@ trait_dataset <- fish_size %>%
                                                   "medg", "largeg"))) 
 
 
+
+# load trait data (to correct taxonomic inconsistency)
+#L.peixes$scientificName [which(L.peixes$scientificName == "Chaenopsis ocellata")] <- "Chaetodon ocellatus"
+
+traits <- read.csv (here ("data", "traits", "Atributos_especies_Atlantico_&_Pacifico_Oriental_2020_04_28.csv"),
+                    sep = ";",h=T)
+
+# find and replace to correct
+# size group
+trait_dataset[which(trait_dataset$scientificName == "Chaenopsis ocellata"), "Size_group"] <- traits[traits$Name == "Chaetodon ocellatus","Size_group"]
+# body size
+trait_dataset[which(trait_dataset$scientificName == "Chaenopsis ocellata"), "Body_size"] <- as.numeric(traits[traits$Name == "Chaetodon ocellatus","Body_size"])
+# aspect ratio
+trait_dataset[which(trait_dataset$scientificName == "Chaenopsis ocellata"), "Aspect_ratio"] <- as.numeric(gsub (",", ".", 
+                                                                                                                traits[traits$Name == "Chaetodon ocellatus","Aspect_ratio"]))
+# trophic level
+trait_dataset[which(trait_dataset$scientificName == "Chaenopsis ocellata"), "Trophic_level"] <- as.numeric(gsub (",", ".", 
+                                                                                                                traits[traits$Name == "Chaetodon ocellatus","Trophic_level"]))
+# temp max
+trait_dataset[which(trait_dataset$scientificName == "Chaenopsis ocellata"), "TempPref_max"] <- as.numeric(gsub (",", ".", 
+                                                                                                                 traits[traits$Name == "Chaetodon ocellatus","TempPref_max"]))
+# depth
+trait_dataset[which(trait_dataset$scientificName == "Chaenopsis ocellata"), "Depth_max"] <- as.numeric(gsub (",", ".", 
+                                                                                                                traits[traits$Name == "Chaetodon ocellatus","Depth_max"]))
+# actual size (from the dataset)
+trait_dataset[which(trait_dataset$scientificName == "Chaenopsis ocellata"),"actual_size"]<- 14.5 # from Longo et al. 
+trait_dataset[which(trait_dataset$scientificName == "Chaenopsis ocellata"),"log_actual_size"] <- log(14.5) # log actual size
+# log max tot body length
+trait_dataset[which(trait_dataset$scientificName == "Chaenopsis ocellata"),"log_Body_size"] <- log(20)
+# schooling size
+trait_dataset[which(trait_dataset$scientificName == "Chaenopsis ocellata"),"ordered_Size_group"] <- "pair"
+# chance the sp name itself
+trait_dataset[which(trait_dataset$scientificName == "Chaenopsis ocellata"),"scientificName"] <- "Chaetodon ocellatus"
+# and the family
+trait_dataset[which(trait_dataset$scientificName == "Chaetodon ocellatus"),"family"] <- "Chaetodontidae"
+
+
+trait_dataset[which(trait_dataset$scientificName == "Chaetodon ocellatus"),]
+
 # analyzed fish
+
+
 # number of analyzed species
 adult <- lapply (fish_species, function (i) i[[1]]) 
 adult<-unique(unlist(adult)) # adult
+adult[which(adult == "Chaenopsis ocellata")] <- "Chaetodon ocellatus"
 juvenile <- lapply (fish_species, function (i) i[[2]]) 
 juvenile<-unique(unlist(juvenile))#juvenile
+juvenile[which(juvenile == "Chaenopsis ocellata")] <- "Chaetodon ocellatus"
 table(juvenile %in% adult)# both
 
 # subset
@@ -273,6 +316,8 @@ tabS2<- trait_dataset %>%
 
 write.csv (tabS2, file = here ("output_comm_wide_R1",
                                    "tabS1.2.csv"))
+
+tabS2 [which(tabS2$scientificName =="Chaetodon ocellatus"),]
 
 # ------------------------------------------------- #
 # site occupancy estimates
@@ -352,6 +397,7 @@ dev.off()
 
 # 
 tab_spp <- data.frame (sp = todas_sp_longo[-which(is.na(todas_sp_longo))])#unique spp
+tab_spp$sp[which(tab_spp$sp == "Chaenopsis ocellata")] <- "Chaetodon ocellatus"
 
 
 
@@ -438,7 +484,14 @@ extracted_data <- lapply (extracted_data, function (coral)
   do.call(rbind, coral)
 )
                                   
+# replace error
+extracted_data <- lapply (extracted_data, function (i) {
 
+  i$peixe[which(i$peixe == "Chaenopsis ocellata")] <- "Chaetodon ocellatus"
+  i$sp[which(i$sp == "Chaenopsis ocellata")] <- "Chaetodon ocellatus"
+  i
+  }
+)
 
 # put the complete set of results in the main page of the GitHub !!
 
@@ -449,6 +502,7 @@ tabS3 <- do.call(rbind,extracted_data) %>%
           "Age class" = "age",
           "Bayesian P-value" = "mRdmP") %>%
   select (-sp)
+
 
 
 # save this complete result to be shown in the supoporting information
@@ -464,6 +518,7 @@ write.csv (tabS3, file = here ("output_comm_wide_R1",
 
 
 sp_analyzed_response <- do.call(rbind, extracted_data) # melt data
+
 # find coral associated fish
 sp_analyzed_response<-(sp_analyzed_response[which(sp_analyzed_response$low.coral>0 & 
                                     sp_analyzed_response$estimate.turf<=0),])
@@ -745,7 +800,7 @@ total<- cbind (total,
 
 # coral associated
 c_assoc <-cbind(all, ext1=ifelse(all$sp %in% 
-                                   unique(tolower (sp_analyzed_response$peixe)),T,F))
+                                   unique( (sp_analyzed_response$peixe)),T,F))
 c_assoc <-c_assoc[which(c_assoc$ext1==T),]
 c_assoc_set <- c_assoc [chull(c_assoc, y = NULL),]
 
@@ -1297,7 +1352,7 @@ plotC <- plotC+ geom_segment(aes(x = 0, y = 0,
          axis.text = element_blank())
 
 # save to pdf
-png (here ("output_comm_wide_R1", "figures","figS1.1"),
+png (here ("output_comm_wide_R1", "figures","figS1.1.png"),
      width = 40, height = 12, units = "cm",res=300)
 
 # organize the trait spaces
@@ -1545,9 +1600,7 @@ violin1 <- ggplot(data_violin[which(data_violin$scenario == "random"),],  # subs
                color = "gray50",
                size=4)+
   
-  #stat_summary(fun=mean,
-  #             geom="point",
-  #             shape=19, size=3) + 
+   
   theme_classic() + xlab ("") + 
   ylab (expression("Reduction in Functional trait Space (RFS, %)")) +
   theme (axis.title = element_text(size=15),
@@ -1592,9 +1645,7 @@ violin2 <- ggplot(data_violin[which(data_violin$scenario == "random_per_coral"),
                color = "gray50",
                size=4)+
   
-  #stat_summary(fun=mean,
-  #             geom="point",
-  #             shape=19, size=3) + 
+  
   theme_classic() + xlab ("") + 
   ylab ("") +
   theme (axis.title = element_text(size=15),
