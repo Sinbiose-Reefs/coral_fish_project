@@ -1,0 +1,17 @@
+---
+title: "Project: Low fish vulnerability to coral loss in Southwestern Atlantic reefs"
+author: "Reef Synthesis Working Group"
+date: "07/04/2022"
+output: github_document
+classoption: landscape
+mainfont: Helvetica
+---
+
+
+<!-- README.md is generated from README.Rmd. Please edit that file -->
+
+<!-- badges: start -->
+<!-- badges: end -->
+
+
+
